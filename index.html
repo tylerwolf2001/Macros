@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<title>Tally</title>
+
+<!-- PWA / iOS home-screen config -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#F7F8FA">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Tally">
+<link rel="apple-touch-icon" href="icon-180.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Barcode scanning: html5-qrcode wraps ZXing (works on iOS Safari, unlike native BarcodeDetector) -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<style>
+  :root{
+    /* Palette — tweak these to re-skin the whole app */
+    --bg:#F7F8FA;
+    --surface:#FFFFFF;
+    --ink:#16181D;
+    --ink-soft:#6B7280;
+    --hair:#E7E9EE;
+    --kcal:#212529;      /* calories / total   */
+    --protein:#6741D9;   /* violet             */
+    --carbs:#0CA678;     /* green-teal         */
+    --fat:#F08C00;       /* amber              */
+    --danger:#E03131;
+    --shadow:0 1px 2px rgba(16,18,29,.05), 0 8px 24px rgba(16,18,29,.06);
+    --radius:18px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--bg);color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:calc(120px + env(safe-area-inset-bottom));
+  }
+  .num{font-family:'Space Grotesk',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+  .app{max-width:480px;margin:0 auto;padding:0 18px}
+
+  /* ---------- header / date nav ---------- */
+  header{
+    padding:calc(14px + env(safe-area-inset-top)) 18px 10px;
+    max-width:480px;margin:0 auto;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .brand{font-family:'Space Grotesk';font-weight:700;font-size:20px;letter-spacing:-.02em}
+  .brand span{color:var(--protein)}
+  .icon-btn{
+    width:40px;height:40px;border:none;background:var(--surface);
+    border-radius:12px;box-shadow:var(--shadow);cursor:pointer;
+    display:grid;place-items:center;color:var(--ink);font-size:18px;
+    transition:transform .08s ease;
+  }
+  .icon-btn:active{transform:scale(.92)}
+
+  .datebar{
+    display:flex;align-items:center;justify-content:center;gap:14px;
+    margin:2px 0 16px;
+  }
+  .datebar .label{font-weight:600;font-size:15px;min-width:150px;text-align:center}
+  .datebar .label small{display:block;color:var(--ink-soft);font-weight:500;font-size:12px}
+  .nav-arrow{
+    width:34px;height:34px;border:none;background:transparent;color:var(--ink-soft);
+    font-size:22px;cursor:pointer;border-radius:10px;line-height:1;
+  }
+  .nav-arrow:active{background:var(--hair)}
+  .nav-arrow:disabled{opacity:.25;cursor:default}
+
+  /* ---------- hero: the macro instrument ---------- */
+  .hero{
+    background:var(--surface);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:22px 20px 20px;margin-bottom:16px;
+  }
+  .kcal-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px}
+  .kcal-big{font-family:'Space Grotesk';font-weight:700;font-size:44px;line-height:1;letter-spacing:-.03em}
+  .kcal-big.over{color:var(--danger)}
+  .kcal-cap{font-size:12px;color:var(--ink-soft);font-weight:500;text-transform:uppercase;letter-spacing:.06em}
+  .kcal-target{font-size:14px;color:var(--ink-soft)}
+  .track{height:8px;background:var(--hair);border-radius:99px;overflow:hidden;margin:12px 0 20px}
+  .track>i{display:block;height:100%;border-radius:99px;background:var(--kcal);width:0;
+    transition:width .5s cubic-bezier(.4,0,.2,1)}
+  .track>i.over{background:var(--danger)}
+
+  .macros{display:grid;gap:16px}
+  .macro .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+  .macro .name{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px}
+  .dot{width:9px;height:9px;border-radius:99px;display:inline-block}
+  .macro .vals{font-size:13px;color:var(--ink-soft)}
+  .macro .vals b{color:var(--ink);font-weight:600}
+  .mtrack{height:6px;background:var(--hair);border-radius:99px;overflow:hidden}
+  .mtrack>i{display:block;height:100%;border-radius:99px;width:0;
+    transition:width .5s cubic-bezier(.4,0,.2,1)}
+
+  /* ---------- log list ---------- */
+  .section-title{font-size:13px;font-weight:600;color:var(--ink-soft);
+    text-transform:uppercase;letter-spacing:.06em;margin:22px 4px 10px}
+  .log{display:flex;flex-direction:column;gap:8px}
+  .entry{
+    background:var(--surface);border-radius:14px;box-shadow:var(--shadow);
+    padding:13px 14px;display:flex;align-items:center;gap:12px;
+  }
+  .entry .info{flex:1;min-width:0}
+  .entry .fname{font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .entry .fmeta{font-size:12px;color:var(--ink-soft);margin-top:2px}
+  .entry .fmeta .sq{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:3px;vertical-align:middle}
+  .entry .kc{font-family:'Space Grotesk';font-weight:600;font-size:15px;white-space:nowrap}
+  .entry .kc small{display:block;font-family:'Inter';font-weight:500;font-size:10px;color:var(--ink-soft);text-align:right}
+  .entry .del{border:none;background:transparent;color:var(--ink-soft);font-size:18px;cursor:pointer;padding:4px 2px}
+  .entry .del:active{color:var(--danger)}
+  .empty{text-align:center;color:var(--ink-soft);font-size:14px;padding:34px 20px;
+    background:var(--surface);border-radius:14px;box-shadow:var(--shadow);line-height:1.5}
+
+  /* ---------- scan FAB ---------- */
+  .fab{
+    position:fixed;left:50%;transform:translateX(-50%);
+    bottom:calc(22px + env(safe-area-inset-bottom));
+    display:flex;gap:10px;z-index:40;
+  }
+  .fab button{
+    border:none;cursor:pointer;font-weight:600;font-size:15px;
+    box-shadow:0 6px 20px rgba(16,18,29,.18);transition:transform .08s ease;
+    display:flex;align-items:center;gap:8px;
+  }
+  .fab .scan{background:var(--ink);color:#fff;padding:15px 26px;border-radius:99px;font-size:16px}
+  .fab .manual{background:var(--surface);color:var(--ink);padding:15px;border-radius:99px;width:52px;justify-content:center;font-size:20px}
+  .fab button:active{transform:scale(.94)}
+
+  /* ---------- bottom sheet / modal ---------- */
+  .scrim{position:fixed;inset:0;background:rgba(16,18,29,.42);z-index:50;opacity:0;
+    pointer-events:none;transition:opacity .2s ease}
+  .scrim.show{opacity:1;pointer-events:auto}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:60;
+    background:var(--surface);border-radius:24px 24px 0 0;
+    max-width:480px;margin:0 auto;
+    padding:8px 20px calc(24px + env(safe-area-inset-bottom));
+    transform:translateY(110%);transition:transform .28s cubic-bezier(.32,.72,0,1);
+    max-height:90vh;overflow-y:auto;
+  }
+  .sheet.show{transform:translateY(0)}
+  .grab{width:38px;height:4px;background:var(--hair);border-radius:99px;margin:8px auto 14px}
+  .sheet h2{font-family:'Space Grotesk';font-size:20px;margin:0 0 2px;letter-spacing:-.02em}
+  .sheet .sub{color:var(--ink-soft);font-size:13.5px;margin:0 0 18px}
+
+  #reader{width:100%;border-radius:16px;overflow:hidden;background:#000;min-height:240px}
+  #reader video{border-radius:16px}
+  .scan-hint{text-align:center;color:var(--ink-soft);font-size:13px;margin:12px 0 4px}
+  .scan-status{text-align:center;font-size:13.5px;margin:10px 0;min-height:18px;font-weight:500}
+  .scan-status.err{color:var(--danger)}
+
+  label.fld{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);
+    text-transform:uppercase;letter-spacing:.05em;margin:14px 0 6px}
+  input.txt,select.txt{
+    width:100%;border:1.5px solid var(--hair);border-radius:12px;padding:13px 14px;
+    font-size:16px;font-family:inherit;background:var(--bg);color:var(--ink);
+  }
+  input.txt:focus,select.txt:focus{outline:none;border-color:var(--protein)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .row4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+  .row4 .num-in input{text-align:center}
+  .seg{display:flex;gap:8px;margin-top:6px}
+  .seg button{flex:1;border:1.5px solid var(--hair);background:var(--bg);border-radius:12px;
+    padding:11px 6px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink-soft)}
+  .seg button.on{border-color:var(--ink);background:var(--ink);color:#fff}
+
+  .preview{background:var(--bg);border-radius:14px;padding:14px 16px;margin:16px 0 4px;
+    display:flex;justify-content:space-between;align-items:center}
+  .preview .pk{font-family:'Space Grotesk';font-weight:700;font-size:22px}
+  .preview .pm{font-size:12px;color:var(--ink-soft)}
+  .preview .pm b{color:var(--ink)}
+
+  .btn-primary{width:100%;border:none;background:var(--ink);color:#fff;
+    padding:16px;border-radius:14px;font-size:16px;font-weight:600;cursor:pointer;margin-top:18px}
+  .btn-primary:active{transform:scale(.99)}
+  .btn-ghost{width:100%;border:1.5px solid var(--hair);background:transparent;color:var(--ink);
+    padding:14px;border-radius:14px;font-size:15px;font-weight:600;cursor:pointer;margin-top:10px}
+
+  .settings-note{font-size:12.5px;color:var(--ink-soft);line-height:1.5;margin-top:16px}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Tal<span>ly</span></div>
+  <button class="icon-btn" id="btnSettings" aria-label="Settings">⚙</button>
+</header>
+
+<div class="app">
+  <div class="datebar">
+    <button class="nav-arrow" id="prevDay" aria-label="Previous day">‹</button>
+    <div class="label" id="dateLabel">Today<small>—</small></div>
+    <button class="nav-arrow" id="nextDay" aria-label="Next day">›</button>
+  </div>
+
+  <!-- HERO: the macro instrument -->
+  <div class="hero">
+    <div class="kcal-row">
+      <div>
+        <div class="kcal-cap">Calories left</div>
+        <div class="kcal-big num" id="kcalLeft">0</div>
+      </div>
+      <div class="kcal-target num">
+        <span id="kcalEaten">0</span> / <span id="kcalTarget">2000</span>
+      </div>
+    </div>
+    <div class="track"><i id="kcalBar"></i></div>
+
+    <div class="macros">
+      <div class="macro">
+        <div class="top">
+          <span class="name"><span class="dot" style="background:var(--protein)"></span>Protein</span>
+          <span class="vals"><b class="num" id="pEat">0</b><span class="num"> / <span id="pTar">0</span>g</span></span>
+        </div>
+        <div class="mtrack"><i id="pBar" style="background:var(--protein)"></i></div>
+      </div>
+      <div class="macro">
+        <div class="top">
+          <span class="name"><span class="dot" style="background:var(--carbs)"></span>Carbs</span>
+          <span class="vals"><b class="num" id="cEat">0</b><span class="num"> / <span id="cTar">0</span>g</span></span>
+        </div>
+        <div class="mtrack"><i id="cBar" style="background:var(--carbs)"></i></div>
+      </div>
+      <div class="macro">
+        <div class="top">
+          <span class="name"><span class="dot" style="background:var(--fat)"></span>Fat</span>
+          <span class="vals"><b class="num" id="fEat">0</b><span class="num"> / <span id="fTar">0</span>g</span></span>
+        </div>
+        <div class="mtrack"><i id="fBar" style="background:var(--fat)"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Logged</div>
+  <div class="log" id="logList"></div>
+</div>
+
+<!-- Scan / manual FAB -->
+<div class="fab">
+  <button class="manual" id="btnManual" aria-label="Add manually">✎</button>
+  <button class="scan" id="btnScan">◫ Scan barcode</button>
+</div>
+
+<!-- SCRIM + SHEETS -->
+<div class="scrim" id="scrim"></div>
+
+<!-- Scanner sheet -->
+<div class="sheet" id="scanSheet">
+  <div class="grab"></div>
+  <h2>Scan a barcode</h2>
+  <p class="sub">Point the rear camera at the barcode.</p>
+  <div id="reader"></div>
+  <div class="scan-status" id="scanStatus"></div>
+  <button class="btn-ghost" id="scanClose">Cancel</button>
+</div>
+
+<!-- Add / edit food sheet -->
+<div class="sheet" id="addSheet">
+  <div class="grab"></div>
+  <h2 id="addTitle">Add food</h2>
+  <p class="sub" id="addSub">Adjust the portion, then add it to today.</p>
+
+  <label class="fld">Food name</label>
+  <input class="txt" id="fName" placeholder="e.g. Greek yogurt">
+
+  <div id="portionWrap">
+    <label class="fld">Portion</label>
+    <div class="seg" id="portionSeg">
+      <button data-mode="serving" id="segServing">Per serving</button>
+      <button data-mode="100g">Per 100g</button>
+      <button data-mode="custom" class="on">Custom</button>
+    </div>
+    <div class="row2" style="margin-top:12px">
+      <div>
+        <label class="fld" style="margin-top:0">Amount</label>
+        <input class="txt num" id="fAmount" type="number" inputmode="decimal" value="100">
+      </div>
+      <div>
+        <label class="fld" style="margin-top:0">Unit</label>
+        <input class="txt" id="fUnit" value="g">
+      </div>
+    </div>
+  </div>
+
+  <label class="fld">Macros for this portion</label>
+  <div class="row4">
+    <div class="num-in">
+      <input class="txt num" id="mKcal" type="number" inputmode="decimal" placeholder="kcal">
+      <div style="text-align:center;font-size:11px;color:var(--ink-soft);margin-top:4px">kcal</div>
+    </div>
+    <div class="num-in">
+      <input class="txt num" id="mP" type="number" inputmode="decimal" placeholder="P">
+      <div style="text-align:center;font-size:11px;color:var(--protein);margin-top:4px">protein</div>
+    </div>
+    <div class="num-in">
+      <input class="txt num" id="mC" type="number" inputmode="decimal" placeholder="C">
+      <div style="text-align:center;font-size:11px;color:var(--carbs);margin-top:4px">carbs</div>
+    </div>
+    <div class="num-in">
+      <input class="txt num" id="mF" type="number" inputmode="decimal" placeholder="F">
+      <div style="text-align:center;font-size:11px;color:var(--fat);margin-top:4px">fat</div>
+    </div>
+  </div>
+
+  <button class="btn-primary" id="addCommit">Add to today</button>
+</div>
+
+<!-- Settings sheet -->
+<div class="sheet" id="setSheet">
+  <div class="grab"></div>
+  <h2>Daily targets</h2>
+  <p class="sub">Set the goals you want to hit each day.</p>
+  <div class="row2">
+    <div>
+      <label class="fld" style="margin-top:0">Calories</label>
+      <input class="txt num" id="tKcal" type="number" inputmode="numeric">
+    </div>
+    <div>
+      <label class="fld" style="margin-top:0">Protein (g)</label>
+      <input class="txt num" id="tP" type="number" inputmode="numeric">
+    </div>
+  </div>
+  <div class="row2" style="margin-top:12px">
+    <div>
+      <label class="fld" style="margin-top:0">Carbs (g)</label>
+      <input class="txt num" id="tC" type="number" inputmode="numeric">
+    </div>
+    <div>
+      <label class="fld" style="margin-top:0">Fat (g)</label>
+      <input class="txt num" id="tF" type="number" inputmode="numeric">
+    </div>
+  </div>
+  <button class="btn-primary" id="setSave">Save targets</button>
+  <button class="btn-ghost" id="btnExport">Export my data (backup)</button>
+  <button class="btn-ghost" id="btnImport">Import data from backup</button>
+  <input type="file" id="importFile" accept="application/json" style="display:none">
+  <p class="settings-note">Your data lives only on this device. Export a backup now and then — iOS can clear a web app's storage if the phone runs low on space.</p>
+</div>
+
+<script>
+/* ============================================================
+   Tally — personal macro tracker (barcode-first PWA)
+   Data model:
+     localStorage["tally.targets"] = {kcal,p,c,f}
+     localStorage["tally.log.YYYY-MM-DD"] = [ {name,kcal,p,c,f,portion} ]
+   ============================================================ */
+
+const $ = id => document.getElementById(id);
+const clampDate = d => d.toISOString().slice(0,10);
+const round = n => Math.round((Number(n)||0));
+const round1 = n => Math.round((Number(n)||0)*10)/10;
+
+let viewDate = new Date();               // the day currently shown
+const TODAY = clampDate(new Date());
+
+/* ---------- storage helpers ---------- */
+const DEF_TARGETS = {kcal:2000, p:150, c:200, f:65};
+function getTargets(){
+  try{ return {...DEF_TARGETS, ...JSON.parse(localStorage.getItem('tally.targets')||'{}')}; }
+  catch{ return {...DEF_TARGETS}; }
+}
+function saveTargets(t){ localStorage.setItem('tally.targets', JSON.stringify(t)); }
+function logKey(dateStr){ return 'tally.log.'+dateStr; }
+function getLog(dateStr){
+  try{ return JSON.parse(localStorage.getItem(logKey(dateStr))||'[]'); }
+  catch{ return []; }
+}
+function saveLog(dateStr, entries){ localStorage.setItem(logKey(dateStr), JSON.stringify(entries)); }
+
+/* ---------- rendering ---------- */
+function fmtDateLabel(d){
+  const ds = clampDate(d);
+  const opts = {weekday:'long', month:'short', day:'numeric'};
+  const pretty = d.toLocaleDateString(undefined, opts);
+  if(ds === TODAY) return {main:'Today', sub:pretty};
+  const y = new Date(); y.setDate(y.getDate()-1);
+  if(ds === clampDate(y)) return {main:'Yesterday', sub:pretty};
+  return {main:pretty, sub:ds};
+}
+
+function renderDay(){
+  const ds = clampDate(viewDate);
+  const t = getTargets();
+  const entries = getLog(ds);
+
+  // date label + next-day disabling (no future days)
+  const lbl = fmtDateLabel(viewDate);
+  $('dateLabel').innerHTML = lbl.main + '<small>'+lbl.sub+'</small>';
+  $('nextDay').disabled = (ds >= TODAY);
+
+  // totals
+  const sum = entries.reduce((a,e)=>({
+    kcal:a.kcal+ (+e.kcal||0), p:a.p+(+e.p||0), c:a.c+(+e.c||0), f:a.f+(+e.f||0)
+  }), {kcal:0,p:0,c:0,f:0});
+
+  // calories
+  const kcalLeft = t.kcal - sum.kcal;
+  $('kcalLeft').textContent = round(kcalLeft);
+  $('kcalLeft').classList.toggle('over', kcalLeft < 0);
+  $('kcalEaten').textContent = round(sum.kcal);
+  $('kcalTarget').textContent = round(t.kcal);
+  const kcalPct = t.kcal>0 ? Math.min(100, sum.kcal/t.kcal*100) : 0;
+  $('kcalBar').style.width = kcalPct+'%';
+  $('kcalBar').classList.toggle('over', sum.kcal > t.kcal);
+
+  // macros
+  const macro = (eat, tar, barId, eatId, tarId) => {
+    $(eatId).textContent = round1(eat);
+    $(tarId).textContent = round(tar);
+    const bar = $(barId);
+    bar.style.width = (tar>0 ? Math.min(100, eat/tar*100) : 0)+'%';
+    bar.style.opacity = eat>tar ? '.55' : '1';
+  };
+  macro(sum.p, t.p, 'pBar','pEat','pTar');
+  macro(sum.c, t.c, 'cBar','cEat','cTar');
+  macro(sum.f, t.f, 'fBar','fEat','fTar');
+
+  // log list
+  const list = $('logList');
+  if(entries.length === 0){
+    list.innerHTML = '<div class="empty">Nothing logged yet.<br>Scan a barcode or add a food to get started.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  entries.forEach((e, i) => {
+    const el = document.createElement('div');
+    el.className = 'entry';
+    el.innerHTML = `
+      <div class="info">
+        <div class="fname">${escapeHtml(e.name||'Food')}</div>
+        <div class="fmeta">
+          ${e.portion?escapeHtml(e.portion)+' · ':''}
+          <span class="sq" style="background:var(--protein)"></span>${round1(e.p)}g
+          <span class="sq" style="background:var(--carbs)"></span>${round1(e.c)}g
+          <span class="sq" style="background:var(--fat)"></span>${round1(e.f)}g
+        </div>
+      </div>
+      <div class="kc num">${round(e.kcal)}<small>kcal</small></div>
+      <button class="del" data-i="${i}" aria-label="Delete">✕</button>`;
+    list.appendChild(el);
+  });
+  list.querySelectorAll('.del').forEach(b=>{
+    b.onclick = () => { deleteEntry(+b.dataset.i); };
+  });
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function deleteEntry(i){
+  const ds = clampDate(viewDate);
+  const entries = getLog(ds);
+  entries.splice(i,1);
+  saveLog(ds, entries);
+  renderDay();
+}
+
+function addEntry(entry){
+  const ds = clampDate(viewDate);
+  const entries = getLog(ds);
+  entries.push(entry);
+  saveLog(ds, entries);
+  renderDay();
+}
+
+/* ---------- sheets ---------- */
+function openSheet(id){ $('scrim').classList.add('show'); $(id).classList.add('show'); }
+function closeSheets(){
+  $('scrim').classList.remove('show');
+  document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('show'));
+  stopScanner();
+}
+$('scrim').onclick = closeSheets;
+
+/* ---------- date nav ---------- */
+$('prevDay').onclick = ()=>{ viewDate.setDate(viewDate.getDate()-1); renderDay(); };
+$('nextDay').onclick = ()=>{
+  if(clampDate(viewDate) >= TODAY) return;
+  viewDate.setDate(viewDate.getDate()+1); renderDay();
+};
+
+/* ============================================================
+   BARCODE SCANNING (html5-qrcode)
+   ============================================================ */
+let scanner = null;
+let scanning = false;
+
+const BARCODE_FORMATS = [
+  Html5QrcodeSupportedFormats.EAN_13,
+  Html5QrcodeSupportedFormats.EAN_8,
+  Html5QrcodeSupportedFormats.UPC_A,
+  Html5QrcodeSupportedFormats.UPC_E,
+  Html5QrcodeSupportedFormats.CODE_128,
+];
+
+$('btnScan').onclick = startScanner;
+$('scanClose').onclick = closeSheets;
+
+async function startScanner(){
+  openSheet('scanSheet');
+  setScanStatus('Starting camera…');
+  if(scanning) return;
+  try{
+    scanner = new Html5Qrcode('reader', { formatsToSupport: BARCODE_FORMATS, verbose:false });
+    const config = { fps:10, qrbox:{width:260, height:150}, aspectRatio:1.2 };
+    await scanner.start({ facingMode:'environment' }, config, onScanSuccess, ()=>{});
+    scanning = true;
+    setScanStatus('');
+  }catch(err){
+    setScanStatus('Could not open the camera. On iPhone, allow camera access and make sure the site is opened over https.', true);
+  }
+}
+
+async function stopScanner(){
+  if(scanner && scanning){
+    try{ await scanner.stop(); scanner.clear(); }catch{}
+  }
+  scanner = null; scanning = false;
+}
+
+function setScanStatus(msg, isErr){
+  const el = $('scanStatus');
+  el.textContent = msg;
+  el.classList.toggle('err', !!isErr);
+}
+
+let lastScan = 0;
+async function onScanSuccess(decodedText){
+  const now = Date.now();
+  if(now - lastScan < 1500) return;         // debounce repeat reads
+  lastScan = now;
+  if(navigator.vibrate) navigator.vibrate(30);
+  setScanStatus('Looking up '+decodedText+' …');
+  await stopScanner();
+  await lookupBarcode(decodedText);
+}
+
+/* ---------- Open Food Facts lookup ---------- */
+async function lookupBarcode(code){
+  try{
+    const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=product_name,brands,nutriments,serving_size,serving_quantity`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.status !== 1 || !data.product){
+      // not found — fall back to manual with the barcode prefilled as the name hint
+      closeSheets();
+      openAddSheet({ name:'', found:false, barcode:code });
+      $('addSub').textContent = `Barcode ${code} isn't in the database. Enter the macros from the label.`;
+      return;
+    }
+    const p = data.product;
+    const n = p.nutriments || {};
+    const per100 = {
+      kcal: n['energy-kcal_100g'] ?? (n['energy_100g'] ? n['energy_100g']/4.184 : null),
+      p:    n['proteins_100g'] ?? null,
+      c:    n['carbohydrates_100g'] ?? null,
+      f:    n['fat_100g'] ?? null,
+    };
+    const perServ = {
+      kcal: n['energy-kcal_serving'] ?? (n['energy_serving'] ? n['energy_serving']/4.184 : null),
+      p:    n['proteins_serving'] ?? null,
+      c:    n['carbohydrates_serving'] ?? null,
+      f:    n['fat_serving'] ?? null,
+    };
+    const name = [p.product_name, p.brands ? '('+p.brands.split(',')[0].trim()+')' : ''].filter(Boolean).join(' ');
+    closeSheets();
+    openAddSheet({
+      name: name || 'Food',
+      found:true,
+      per100, perServ,
+      servingSize: p.serving_size || (p.serving_quantity ? p.serving_quantity+'g' : ''),
+      servingQty: p.serving_quantity || null,
+    });
+  }catch(err){
+    closeSheets();
+    openAddSheet({ name:'', found:false, barcode:code });
+    $('addSub').textContent = 'Lookup failed (offline?). Enter the macros manually.';
+  }
+}
+
+/* ============================================================
+   ADD / EDIT SHEET  (handles both scanned + manual)
+   ============================================================ */
+let addCtx = null;   // holds per100 / perServ / current mode
+
+function openAddSheet(ctx){
+  addCtx = ctx;
+  $('addTitle').textContent = ctx.found ? 'Add food' : 'Add food manually';
+  $('addSub').textContent   = 'Adjust the portion, then add it to today.';
+  $('fName').value = ctx.name || '';
+
+  // Configure portion segmented control based on what data we have
+  const seg = $('portionSeg');
+  seg.style.display = ctx.found ? 'flex' : 'none';
+  $('portionWrap').querySelector('.row2').style.display = ctx.found ? 'grid' : 'none';
+  $('segServing').style.display = (ctx.found && ctx.perServ && ctx.perServ.kcal!=null) ? 'block' : 'none';
+
+  if(ctx.found){
+    // default: serving if available, else 100g, else custom 100g
+    const hasServ = ctx.perServ && ctx.perServ.kcal!=null;
+    setPortionMode(hasServ ? 'serving' : '100g');
+  }else{
+    // manual — zero out, let user type everything
+    $('mKcal').value=''; $('mP').value=''; $('mC').value=''; $('mF').value='';
+    $('fAmount').value=''; $('fUnit').value='g';
+  }
+  openSheet('addSheet');
+}
+
+// segmented portion buttons
+$('portionSeg').querySelectorAll('button').forEach(btn=>{
+  btn.onclick = ()=> setPortionMode(btn.dataset.mode);
+});
+$('fAmount').addEventListener('input', ()=>{ if(currentMode==='custom') recomputeCustom(); });
+
+let currentMode = 'custom';
+function setPortionMode(mode){
+  currentMode = mode;
+  $('portionSeg').querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.mode===mode));
+  const c = addCtx;
+  if(mode==='serving' && c.perServ){
+    $('fAmount').value = c.servingQty || '';
+    $('fUnit').value = c.servingSize && !c.servingQty ? c.servingSize : 'g';
+    fillMacros(c.perServ);
+  }else if(mode==='100g' && c.per100){
+    $('fAmount').value = 100; $('fUnit').value='g';
+    fillMacros(c.per100);
+  }else if(mode==='custom'){
+    $('fUnit').value='g';
+    if(!$('fAmount').value) $('fAmount').value = 100;
+    recomputeCustom();
+  }
+}
+function recomputeCustom(){
+  const c = addCtx; if(!c || !c.per100) return;
+  const grams = +$('fAmount').value || 0;
+  const scale = grams/100;
+  fillMacros({
+    kcal: c.per100.kcal!=null ? c.per100.kcal*scale : null,
+    p:    c.per100.p!=null ? c.per100.p*scale : null,
+    c:    c.per100.c!=null ? c.per100.c*scale : null,
+    f:    c.per100.f!=null ? c.per100.f*scale : null,
+  });
+}
+function fillMacros(m){
+  $('mKcal').value = m.kcal!=null ? round(m.kcal) : '';
+  $('mP').value = m.p!=null ? round1(m.p) : '';
+  $('mC').value = m.c!=null ? round1(m.c) : '';
+  $('mF').value = m.f!=null ? round1(m.f) : '';
+}
+
+$('addCommit').onclick = ()=>{
+  const name = $('fName').value.trim() || 'Food';
+  const kcal = +$('mKcal').value || 0;
+  const p = +$('mP').value || 0, c = +$('mC').value || 0, f = +$('mF').value || 0;
+  let portion = '';
+  if($('fAmount').value){ portion = (round1($('fAmount').value)) + ($('fUnit').value||''); }
+  if(kcal===0 && p===0 && c===0 && f===0){
+    setScanStatus('');
+    $('mKcal').focus();
+    return; // nothing to add
+  }
+  addEntry({ name, kcal, p, c, f, portion });
+  closeSheets();
+};
+
+// manual button
+$('btnManual').onclick = ()=> openAddSheet({ name:'', found:false });
+
+/* ============================================================
+   SETTINGS + BACKUP
+   ============================================================ */
+$('btnSettings').onclick = ()=>{
+  const t = getTargets();
+  $('tKcal').value=t.kcal; $('tP').value=t.p; $('tC').value=t.c; $('tF').value=t.f;
+  openSheet('setSheet');
+};
+$('setSave').onclick = ()=>{
+  saveTargets({
+    kcal:+$('tKcal').value||0, p:+$('tP').value||0,
+    c:+$('tC').value||0, f:+$('tF').value||0
+  });
+  closeSheets(); renderDay();
+};
+
+$('btnExport').onclick = ()=>{
+  const dump = {};
+  for(let i=0;i<localStorage.length;i++){
+    const k = localStorage.key(i);
+    if(k.startsWith('tally.')) dump[k]=localStorage.getItem(k);
+  }
+  const blob = new Blob([JSON.stringify(dump,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tally-backup-'+TODAY+'.json';
+  a.click();
+};
+$('btnImport').onclick = ()=> $('importFile').click();
+$('importFile').onchange = (e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    try{
+      const obj = JSON.parse(r.result);
+      Object.entries(obj).forEach(([k,v])=>{ if(k.startsWith('tally.')) localStorage.setItem(k,v); });
+      closeSheets(); renderDay();
+      alert('Backup restored.');
+    }catch{ alert('That file could not be read as a Tally backup.'); }
+  };
+  r.readAsText(file);
+};
+
+/* ---------- init ---------- */
+renderDay();
+
+/* ---------- register service worker (installability + offline shell) ---------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
