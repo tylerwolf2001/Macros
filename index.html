@@ -130,6 +130,7 @@
   .scrim{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:50;opacity:0;
     pointer-events:none;transition:opacity .2s ease}
   .scrim.show{opacity:1;pointer-events:auto}
+  body.locked{position:fixed;left:0;right:0;width:100%;overflow:hidden}
   .sheet{position:fixed;left:0;right:0;bottom:0;z-index:60;
     background:var(--surface);border-top:1px solid var(--hair);border-radius:24px 24px 0 0;
     max-width:480px;margin:0 auto;
@@ -779,15 +780,52 @@ function deleteEntry(i){
 }
 
 /* ---------- sheets ---------- */
-function openSheet(id){ $('scrim').classList.add('show'); $(id).classList.add('show'); }
+let lockY=0;
+function openSheet(id){
+  if(!document.body.classList.contains('locked')){
+    lockY=window.scrollY||0;
+    document.body.style.top=(-lockY)+'px';
+    document.body.classList.add('locked');   // stop iOS scrolling the page to "help" the keyboard
+  }
+  $('scrim').classList.add('show'); $(id).classList.add('show');
+  fitOpenSheets();
+}
 function closeSheets(){
   if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
   $('scrim').classList.remove('show');
-  document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('show'));
+  document.querySelectorAll('.sheet').forEach(s=>{
+    s.classList.remove('show');
+    s.style.bottom=''; s.style.maxHeight='';
+  });
+  if(document.body.classList.contains('locked')){
+    document.body.classList.remove('locked');
+    document.body.style.top='';
+    window.scrollTo(0, lockY);
+  }
   stopScanner();
 }
 $('scrim').onclick=closeSheets;
 document.querySelectorAll('.sheet-x').forEach(b=>b.onclick=closeSheets);
+
+/* keep any open sheet fully visible above the iOS keyboard:
+   when the keyboard shrinks the visual viewport, lift the sheet by the
+   keyboard height and cap its height to what's actually visible */
+const vv = window.visualViewport;
+function fitOpenSheets(){
+  const kb = vv ? Math.max(0, window.innerHeight - vv.height) : 0;
+  document.querySelectorAll('.sheet.show').forEach(s=>{
+    if(kb>0){
+      s.style.bottom = kb+'px';
+      s.style.maxHeight = Math.max(220, vv.height - 12)+'px';
+    }else{
+      s.style.bottom=''; s.style.maxHeight='';
+    }
+  });
+}
+if(vv){
+  vv.addEventListener('resize', fitOpenSheets);
+  vv.addEventListener('scroll', fitOpenSheets);
+}
 
 /* ---------- date nav ---------- */
 $('prevDay').onclick=()=>{ viewDate.setDate(viewDate.getDate()-1); renderDay(); };
