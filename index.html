@@ -138,6 +138,9 @@
     max-height:90vh;overflow-y:auto;overscroll-behavior:contain}
   .sheet.show{transform:translateY(0)}
   .grab{width:38px;height:4px;background:var(--hair);border-radius:99px;margin:8px auto 14px}
+  .sheet-x{position:absolute;top:14px;right:16px;width:34px;height:34px;border:1px solid var(--hair);
+    background:var(--elev);color:var(--ink-soft);border-radius:10px;font-size:15px;cursor:pointer;line-height:1;z-index:2}
+  .sheet-x:active{background:var(--hair)}
   .sheet h2{font-family:'Space Grotesk';font-size:20px;margin:0 0 2px;letter-spacing:-.02em}
   .sheet .sub{color:var(--ink-soft);font-size:13.5px;margin:0 0 16px}
 
@@ -188,6 +191,33 @@
   .rrow .rsub{font-size:12px;color:var(--ink-soft);margin-top:2px}
   .rrow .rk{font-family:'Space Grotesk';font-size:13.5px;color:var(--ink-soft);white-space:nowrap}
   .rmsg{color:var(--ink-soft);font-size:13px;text-align:center;padding:10px}
+  .rrow .star,.rrow .rbtn{border:none;background:transparent;color:var(--ink-soft);font-size:17px;cursor:pointer;padding:4px 7px;flex:0 0 auto}
+  .rrow .star.on{color:var(--fat)}
+  .rcitem{background:var(--elev);border:1px solid var(--hair);border-radius:12px;padding:12px 14px;
+    display:flex;align-items:center;gap:10px}
+  .rcitem .del{border:none;background:transparent;color:var(--ink-soft);font-size:16px;cursor:pointer;padding:4px}
+
+  /* ---------- trends ---------- */
+  .chartbox{background:var(--elev);border:1px solid var(--hair);border-radius:14px;padding:10px;margin-top:10px}
+  .chartbox svg{display:block;width:100%;height:auto}
+  .statline{font-size:12.5px;color:var(--ink-soft);margin-top:10px;line-height:1.6}
+  .statline b{color:var(--ink);font-family:'Space Grotesk';font-weight:600}
+
+  /* ---------- backup nudge ---------- */
+  .nudgebar{background:var(--elev);border:1px solid var(--hair);border-radius:12px;padding:11px 14px;
+    font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.5}
+  .nudgebar b,.nudgebar span{cursor:pointer}
+  .nudgebar b{color:var(--ink)}
+
+  /* ---------- meal add options ---------- */
+  .opt{width:100%;background:var(--elev);border:1px solid var(--hair);border-radius:14px;padding:15px 16px;
+    display:flex;align-items:center;gap:12px;cursor:pointer;color:var(--ink);font-family:inherit;text-align:left;margin-top:10px}
+  .opt:active{background:var(--hair)}
+  .opt .oi{font-size:19px;width:26px;text-align:center}
+  .opt .ot{flex:1}
+  .opt .ol{display:block;font-weight:600;font-size:15px}
+  .opt .os{display:block;font-size:12px;color:var(--ink-soft);margin-top:2px}
+  .opt:disabled{opacity:.45;cursor:default}
 
   /* ---------- profile result ---------- */
   .sugg{background:var(--elev);border:1px solid var(--hair);border-radius:14px;padding:16px;margin-top:18px}
@@ -203,7 +233,10 @@
 
 <header>
   <div class="brand">Macro<span>s</span></div>
-  <button class="icon-btn" id="btnSettings" aria-label="Settings">⚙</button>
+  <div style="display:flex;gap:8px">
+    <button class="icon-btn" id="btnTrends" aria-label="Trends"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/></svg></button>
+    <button class="icon-btn" id="btnSettings" aria-label="Settings">⚙</button>
+  </div>
 </header>
 
 <div class="app">
@@ -247,6 +280,8 @@
     </div>
   </div>
 
+  <div class="nudgebar" id="nudge" style="display:none">It's been a while since your last backup. <b id="nudgeGo">Export now</b> &nbsp;·&nbsp; <span id="nudgeLater">Remind me later</span></div>
+
   <div id="mealsWrap"></div>
 </div>
 
@@ -260,8 +295,9 @@
 <!-- Scanner sheet -->
 <div class="sheet" id="scanSheet">
   <div class="grab"></div>
+  <button class="sheet-x" aria-label="Close">✕</button>
   <h2>Scan a barcode</h2>
-  <p class="sub">Point the rear camera at the barcode.</p>
+  <p class="sub">Hold the barcode about 4–6 inches away and give it a second to focus.</p>
   <div id="reader"></div>
   <div class="scan-status" id="scanStatus"></div>
   <button class="btn-ghost" id="scanClose">Cancel</button>
@@ -270,13 +306,14 @@
 <!-- Food add/edit sheet -->
 <div class="sheet" id="foodSheet">
   <div class="grab"></div>
+  <button class="sheet-x" aria-label="Close">✕</button>
   <h2 id="foodTitle">Add food</h2>
   <p class="sub" id="foodSub">Set the portion — macros scale automatically.</p>
 
   <label class="fld">Food name</label>
   <input class="txt" id="fName" placeholder="e.g. Greek yogurt">
 
-  <label class="fld">Meal</label>
+  <label class="fld" id="mealLbl">Meal</label>
   <div class="seg" id="mealSeg">
     <button data-meal="breakfast">Breakfast</button>
     <button data-meal="lunch">Lunch</button>
@@ -318,6 +355,7 @@
 <!-- Search sheet -->
 <div class="sheet" id="searchSheet">
   <div class="grab"></div>
+  <button class="sheet-x" aria-label="Close">✕</button>
   <h2>Find a food</h2>
   <p class="sub">Common foods plus the Open Food Facts branded database.</p>
   <input class="txt" id="searchInput" placeholder="Search: banana, white bread, chicken…" enterkeyhint="search" autocomplete="off">
@@ -325,9 +363,63 @@
   <button class="btn-ghost" id="btnManualEntry">Can’t find it? Enter manually</button>
 </div>
 
+<!-- Meal add chooser -->
+<div class="sheet" id="mealAddSheet">
+  <div class="grab"></div>
+  <button class="sheet-x" aria-label="Close">✕</button>
+  <h2 id="maTitle">Add to Breakfast</h2>
+  <p class="sub">How do you want to add it?</p>
+  <button class="opt" id="maScan"><span class="oi">◫</span><span class="ot"><span class="ol">Scan barcode</span></span></button>
+  <button class="opt" id="maSearch"><span class="oi">⌕</span><span class="ot"><span class="ol">Search foods</span></span></button>
+  <button class="opt" id="maManual"><span class="oi">✎</span><span class="ot"><span class="ol">Enter manually</span></span></button>
+  <button class="opt" id="maCopy"><span class="oi">⧉</span><span class="ot"><span class="ol" id="maCopyL">Copy from yesterday</span><span class="os" id="maCopyS"></span></span></button>
+</div>
+
+<!-- Recipe editor sheet -->
+<div class="sheet" id="recipeSheet">
+  <div class="grab"></div>
+  <button class="sheet-x" aria-label="Close">✕</button>
+  <h2 id="rcTitle">New recipe</h2>
+  <p class="sub">Combine ingredients once, then log the whole thing in one tap.</p>
+  <label class="fld">Recipe name</label>
+  <input class="txt" id="rcName" placeholder="e.g. Morning shake">
+  <label class="fld">Makes how many servings?</label>
+  <input class="txt num" id="rcMakes" type="number" inputmode="decimal" value="1">
+  <label class="fld">Ingredients</label>
+  <div id="rcItems" class="results" style="margin-top:6px"></div>
+  <button class="btn-ghost" id="rcAdd">＋ Add ingredient</button>
+  <div class="statline" id="rcTotals"></div>
+  <button class="btn-primary" id="rcSave">Save recipe</button>
+  <button class="btn-ghost btn-danger" id="rcDelete" style="display:none">Delete recipe</button>
+</div>
+
+<!-- Trends sheet -->
+<div class="sheet" id="trendSheet">
+  <div class="grab"></div>
+  <button class="sheet-x" aria-label="Close">✕</button>
+  <h2>Trends</h2>
+  <p class="sub">Weight and weekly intake at a glance.</p>
+
+  <label class="fld">Body weight <span style="text-transform:none;font-weight:500">(logs for today)</span></label>
+  <div class="qtyrow">
+    <input class="txt num" id="wIn" type="number" inputmode="decimal" placeholder="0.0">
+    <div class="seg" id="wUnitSeg" style="flex:0 0 128px;margin-top:0">
+      <button data-u="lb">lb</button><button data-u="kg">kg</button>
+    </div>
+  </div>
+  <button class="btn-primary" id="wSave" style="margin-top:12px">Save weight</button>
+  <div class="statline" id="wStats"></div>
+  <div class="chartbox" id="wChart"></div>
+
+  <label class="fld" style="margin-top:24px">Calories — last 14 days</label>
+  <div class="chartbox" id="kChart"></div>
+  <div class="statline" id="kStats"></div>
+</div>
+
 <!-- Settings sheet -->
 <div class="sheet" id="setSheet">
   <div class="grab"></div>
+  <button class="sheet-x" aria-label="Close">✕</button>
   <h2>Daily targets</h2>
   <p class="sub">Set the goals you want to hit each day.</p>
   <div class="row2">
@@ -349,6 +441,7 @@
 <!-- Profile / target calculator sheet -->
 <div class="sheet" id="profSheet">
   <div class="grab"></div>
+  <button class="sheet-x" aria-label="Close">✕</button>
   <h2>Suggest my targets</h2>
   <p class="sub">Estimates daily needs with the Mifflin-St Jeor equation.</p>
 
@@ -504,6 +597,72 @@ const FOODS=[
  {n:'Wine',k:83,p:0.1,c:2.6,f:0,u:'5 oz glass',g:148},
 ];
 
+/* ---------- popular chain items (per item; published values — recipes change, always editable) ---------- */
+const CHAIN=[
+ // Starbucks
+ {b:'Starbucks',n:'Bacon, Gouda & Egg Sandwich',k:360,p:18,c:35,f:18,t:'breakfast'},
+ {b:'Starbucks',n:'Sausage, Cheddar & Egg Sandwich',k:480,p:15,c:44,f:28,t:'breakfast'},
+ {b:'Starbucks',n:'Turkey Bacon, Cheddar & Egg White Sandwich',k:230,p:17,c:28,f:5,t:'breakfast'},
+ {b:'Starbucks',n:'Double-Smoked Bacon, Cheddar & Egg Sandwich',k:530,p:21,c:43,f:31,t:'breakfast'},
+ {b:'Starbucks',n:'Spinach, Feta & Egg White Wrap',k:290,p:20,c:34,f:8,t:'breakfast'},
+ {b:'Starbucks',n:'Bacon & Gruyère Egg Bites',k:300,p:19,c:9,f:21,t:'breakfast'},
+ {b:'Starbucks',n:'Egg White & Roasted Red Pepper Egg Bites',k:170,p:13,c:11,f:8,t:'breakfast'},
+ {b:'Starbucks',n:'Caffè Latte, Grande (2% milk)',k:190,p:13,c:19,f:7,t:'coffee drink'},
+ {b:'Starbucks',n:'Vanilla Latte, Grande (2% milk)',k:250,p:12,c:37,f:6,t:'coffee drink'},
+ {b:'Starbucks',n:'Caramel Macchiato, Grande',k:250,p:10,c:35,f:7,t:'coffee drink'},
+ {b:'Starbucks',n:'Pumpkin Spice Latte, Grande',k:390,p:14,c:52,f:14,t:'coffee drink'},
+ {b:'Starbucks',n:'White Chocolate Mocha, Grande',k:430,p:15,c:54,f:18,t:'coffee drink'},
+ {b:'Starbucks',n:'Cold Brew, Grande (black)',k:5,p:0,c:0,f:0,t:'coffee drink'},
+ // McDonald's
+ {b:"McDonald's",n:'Big Mac',k:590,p:25,c:46,f:34,t:'burger'},
+ {b:"McDonald's",n:'Quarter Pounder with Cheese',k:520,p:30,c:41,f:26,t:'burger'},
+ {b:"McDonald's",n:'McDouble',k:400,p:22,c:33,f:20,t:'burger'},
+ {b:"McDonald's",n:'Cheeseburger',k:300,p:15,c:32,f:13,t:'burger'},
+ {b:"McDonald's",n:'McChicken',k:400,p:14,c:39,f:21,t:'chicken sandwich'},
+ {b:"McDonald's",n:'Chicken McNuggets (10 pc)',k:410,p:23,c:25,f:24,t:'chicken nuggets'},
+ {b:"McDonald's",n:'French Fries (medium)',k:320,p:5,c:43,f:15,t:'fries'},
+ {b:"McDonald's",n:'Egg McMuffin',k:310,p:17,c:30,f:13,t:'breakfast sandwich'},
+ {b:"McDonald's",n:'Sausage McMuffin with Egg',k:480,p:20,c:44,f:25,t:'breakfast sandwich'},
+ {b:"McDonald's",n:'Sausage Burrito',k:300,p:12,c:25,f:16,t:'breakfast'},
+ {b:"McDonald's",n:'Hash Browns',k:140,p:2,c:18,f:8,t:'breakfast'},
+ // Chick-fil-A
+ {b:'Chick-fil-A',n:'Chicken Sandwich',k:420,p:28,c:41,f:18,t:'chicken'},
+ {b:'Chick-fil-A',n:'Spicy Chicken Sandwich',k:450,p:28,c:45,f:19,t:'chicken'},
+ {b:'Chick-fil-A',n:'Grilled Chicken Sandwich',k:390,p:28,c:44,f:12,t:'chicken'},
+ {b:'Chick-fil-A',n:'Nuggets (8 ct)',k:250,p:27,c:11,f:11,t:'chicken'},
+ {b:'Chick-fil-A',n:'Grilled Nuggets (8 ct)',k:130,p:25,c:1,f:3,t:'chicken'},
+ {b:'Chick-fil-A',n:'Waffle Fries (medium)',k:420,p:5,c:45,f:24,t:'fries'},
+ // Chipotle (standard portions)
+ {b:'Chipotle',n:'Chicken',k:180,p:32,c:0,f:7,t:'bowl burrito'},
+ {b:'Chipotle',n:'Steak',k:150,p:21,c:1,f:6,t:'bowl burrito'},
+ {b:'Chipotle',n:'Barbacoa',k:170,p:24,c:2,f:7,t:'bowl burrito'},
+ {b:'Chipotle',n:'Carnitas',k:210,p:23,c:0,f:12,t:'bowl burrito'},
+ {b:'Chipotle',n:'Sofritas',k:150,p:8,c:9,f:10,t:'bowl burrito tofu'},
+ {b:'Chipotle',n:'White Rice',k:210,p:4,c:40,f:4,t:'bowl'},
+ {b:'Chipotle',n:'Brown Rice',k:210,p:4,c:36,f:6,t:'bowl'},
+ {b:'Chipotle',n:'Black Beans',k:130,p:8,c:22,f:1.5,t:'bowl'},
+ {b:'Chipotle',n:'Pinto Beans',k:130,p:8,c:21,f:1.5,t:'bowl'},
+ {b:'Chipotle',n:'Fajita Veggies',k:20,p:1,c:5,f:0,t:'bowl'},
+ {b:'Chipotle',n:'Cheese',k:110,p:6,c:1,f:8,t:'bowl'},
+ {b:'Chipotle',n:'Sour Cream',k:110,p:2,c:2,f:9,t:'bowl'},
+ {b:'Chipotle',n:'Guacamole',k:230,p:2,c:8,f:22,t:'bowl'},
+ {b:'Chipotle',n:'Flour Tortilla (burrito)',k:320,p:9,c:50,f:9,t:'burrito'},
+ {b:'Chipotle',n:'Chips',k:540,p:7,c:73,f:25,t:'side'},
+ // Subway (6-inch, standard recipe)
+ {b:'Subway',n:'Turkey Breast 6"',k:250,p:18,c:40,f:3.5,t:'sub sandwich'},
+ {b:'Subway',n:'Italian B.M.T. 6"',k:390,p:19,c:40,f:16,t:'sub sandwich'},
+ {b:'Subway',n:'Meatball Marinara 6"',k:430,p:20,c:46,f:18,t:'sub sandwich'},
+ {b:'Subway',n:'Tuna 6"',k:480,p:19,c:39,f:25,t:'sub sandwich'},
+ // Taco Bell
+ {b:'Taco Bell',n:'Crunchy Taco',k:170,p:8,c:13,f:10},
+ {b:'Taco Bell',n:'Bean Burrito',k:350,p:13,c:54,f:9},
+ {b:'Taco Bell',n:'Crunchwrap Supreme',k:530,p:16,c:71,f:21},
+ // Dunkin'
+ {b:"Dunkin'",n:'Glazed Donut',k:240,p:3,c:31,f:11},
+ {b:"Dunkin'",n:'Boston Kreme Donut',k:300,p:4,c:39,f:14},
+ {b:"Dunkin'",n:'Plain Bagel',k:310,p:11,c:62,f:2.5,t:'breakfast'},
+];
+
 /* ---------- storage ---------- */
 const DEF_TARGETS = {kcal:2000, p:150, c:200, f:65};
 function getTargets(){ try{ return {...DEF_TARGETS, ...JSON.parse(localStorage.getItem('tally.targets')||'{}')}; }catch{ return {...DEF_TARGETS}; } }
@@ -596,7 +755,7 @@ function renderDay(){
   });
 
   wrap.querySelectorAll('.madd').forEach(b=>{
-    b.onclick=()=> openSearch(b.dataset.meal);
+    b.onclick=()=> openMealAdd(b.dataset.meal);
   });
 }
 
@@ -608,11 +767,13 @@ function deleteEntry(i){
 /* ---------- sheets ---------- */
 function openSheet(id){ $('scrim').classList.add('show'); $(id).classList.add('show'); }
 function closeSheets(){
+  if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
   $('scrim').classList.remove('show');
   document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('show'));
   stopScanner();
 }
 $('scrim').onclick=closeSheets;
+document.querySelectorAll('.sheet-x').forEach(b=>b.onclick=closeSheets);
 
 /* ---------- date nav ---------- */
 $('prevDay').onclick=()=>{ viewDate.setDate(viewDate.getDate()-1); renderDay(); };
@@ -623,6 +784,41 @@ function defaultMeal(){
   return h<11 ? 'breakfast' : (h<16 ? 'lunch' : 'dinner');
 }
 const scale=(m,s)=>({kcal:(m.kcal||0)*s, p:(m.p||0)*s, c:(m.c||0)*s, f:(m.f||0)*s});
+
+/* ============================================================
+   MEAL "+" CHOOSER — scan / search / manual / copy previous day
+   ============================================================ */
+const mlabel = k => (MEALS.find(m=>m[0]===k)||['','Meal'])[1];
+let pendingMeal=null;
+function prevDayOf(d){ const p=new Date(d); p.setDate(p.getDate()-1); return p; }
+
+function openMealAdd(meal){
+  pendingMeal=meal; pickingForRecipe=false;
+  $('maTitle').textContent='Add to '+mlabel(meal);
+  const src=getLog(clampDate(prevDayOf(viewDate))).filter(e=>e.meal===meal);
+  const isToday = clampDate(viewDate)===TODAY;
+  $('maCopyL').textContent='Copy from '+(isToday?'yesterday':'the previous day');
+  if(src.length){
+    const kc=src.reduce((a,e)=>a+(+e.kcal||0),0);
+    $('maCopyS').textContent=src.length+(src.length===1?' item':' items')+' · '+round(kc)+' kcal';
+    $('maCopy').disabled=false;
+  }else{
+    $('maCopyS').textContent='Nothing was logged for '+mlabel(meal).toLowerCase()+' '+(isToday?'yesterday':'that day');
+    $('maCopy').disabled=true;
+  }
+  openSheet('mealAddSheet');
+}
+$('maScan').onclick=()=>{ closeSheets(); startScanner(); };
+$('maSearch').onclick=()=>{ closeSheets(); openSearch(pendingMeal); };
+$('maManual').onclick=()=>{ closeSheets(); openFoodSheet({meal:pendingMeal}); };
+$('maCopy').onclick=()=>{
+  const meal=pendingMeal;
+  const src=getLog(clampDate(prevDayOf(viewDate))).filter(e=>e.meal===meal);
+  if(!src.length) return;
+  const ds=clampDate(viewDate); const entries=getLog(ds);
+  src.forEach(e=>entries.push(JSON.parse(JSON.stringify(e))));
+  saveLog(ds,entries); closeSheets(); renderDay();
+};
 
 /* ============================================================
    FOOD SHEET — unified add/edit with base×quantity scaling
@@ -642,11 +838,13 @@ function openFoodSheet(src){
     editIndex: (src.editIndex!==undefined && src.editIndex!==null)? src.editIndex : null,
   };
   const editing = ctx.editIndex!==null;
-  $('foodTitle').textContent = editing ? 'Edit food' : 'Add food';
-  $('foodSub').textContent = src.subText || 'Set the portion — macros scale automatically.';
+  $('foodTitle').textContent = pickingForRecipe ? 'Add ingredient' : (editing ? 'Edit food' : 'Add food');
+  $('foodSub').textContent = src.subText || (pickingForRecipe ? 'Set the amount that goes into the recipe.' : 'Set the portion — macros scale automatically.');
   $('fName').value = ctx.name;
-  $('foodCommit').textContent = editing ? 'Save changes' : 'Add food';
+  $('foodCommit').textContent = pickingForRecipe ? 'Add to recipe' : (editing ? 'Save changes' : 'Add food');
   $('foodDelete').style.display = editing ? 'block' : 'none';
+  $('mealLbl').style.display = pickingForRecipe ? 'none' : 'block';
+  $('mealSeg').style.display = pickingForRecipe ? 'none' : 'flex';
 
   const has100 = !!(ctx.per100 && ctx.per100.kcal!=null);
   const hasServ = !!(ctx.serv && ctx.serv.base && ctx.serv.base.kcal!=null);
@@ -744,6 +942,12 @@ function portionLabel(){
 $('foodCommit').onclick=()=>{
   const kcal=+$('mKcal').value||0, p=+$('mP').value||0, c=+$('mC').value||0, f=+$('mF').value||0;
   if(kcal===0&&p===0&&c===0&&f===0){ $('mKcal').focus(); return; }
+  if(pickingForRecipe){
+    recipeDraft.items.push({name: $('fName').value.trim()||'Ingredient', kcal, p, c, f});
+    pickingForRecipe=false;
+    openRecipeEditor(null);   // resumes the in-progress draft
+    return;
+  }
   const entry={
     name: $('fName').value.trim()||'Food',
     meal: ctx.meal,
@@ -755,7 +959,9 @@ $('foodCommit').onclick=()=>{
   };
   const ds=clampDate(viewDate); const entries=getLog(ds);
   if(ctx.editIndex!==null) entries[ctx.editIndex]=entry; else entries.push(entry);
-  saveLog(ds,entries); closeSheets(); renderDay();
+  saveLog(ds,entries);
+  upsertLibrary(entry);
+  closeSheets(); renderDay();
 };
 $('foodDelete').onclick=()=>{ if(ctx.editIndex!==null) deleteEntry(ctx.editIndex); closeSheets(); };
 
@@ -772,7 +978,7 @@ function openEditEntry(i){
    BARCODE SCANNING
    ============================================================ */
 let scanner=null, scanning=false, lastScan=0;
-$('btnScan').onclick=startScanner;
+$('btnScan').onclick=()=>{ pendingMeal=null; pickingForRecipe=false; startScanner(); };
 $('scanClose').onclick=closeSheets;
 
 async function startScanner(){
@@ -786,11 +992,38 @@ async function startScanner(){
       Html5QrcodeSupportedFormats.CODE_128,
     ] : undefined;
     scanner = new Html5Qrcode('reader', { formatsToSupport:fmts, verbose:false });
-    await scanner.start({facingMode:'environment'}, {fps:10, qrbox:{width:260,height:150}, aspectRatio:1.2}, onScan, ()=>{});
+    await scanner.start(
+      {facingMode:'environment'},
+      {
+        fps:10, qrbox:{width:280,height:160}, aspectRatio:1.2,
+        experimentalFeatures:{useBarCodeDetectorIfSupported:true},
+        videoConstraints:{facingMode:'environment', width:{ideal:1920}, height:{ideal:1080}},
+      },
+      onScan, ()=>{});
     scanning=true; setScanStatus('');
+    improveFocus();
   }catch(err){
     setScanStatus('Could not open the camera. Allow camera access, and make sure the app is served over https.', true);
   }
+}
+/* Nudge the camera toward barcode-friendly settings where the device allows it:
+   continuous autofocus + a modest zoom (zooming in effectively shortens the
+   iPhone's minimum focus distance, which is what causes the initial blur). */
+async function improveFocus(){
+  try{
+    await new Promise(r=>setTimeout(r,400));
+    const video=document.querySelector('#reader video');
+    const track=video && video.srcObject && video.srcObject.getVideoTracks()[0];
+    if(!track || !track.getCapabilities) return;
+    const caps=track.getCapabilities();
+    const adv=[];
+    if(caps.focusMode && caps.focusMode.includes && caps.focusMode.includes('continuous')) adv.push({focusMode:'continuous'});
+    if(caps.zoom && caps.zoom.max){
+      const z=Math.min(caps.zoom.max, Math.max(caps.zoom.min||1, 2));
+      if(z>1) adv.push({zoom:z});
+    }
+    if(adv.length) await track.applyConstraints({advanced:adv});
+  }catch{ /* best effort — not all devices expose these controls */ }
 }
 async function stopScanner(){
   if(scanner&&scanning){ try{ await scanner.stop(); scanner.clear(); }catch{} }
@@ -831,15 +1064,15 @@ async function lookupBarcode(code){
     const res=await fetch(url); const data=await res.json();
     if(data.status!==1||!data.product){
       closeSheets();
-      openFoodSheet({name:'', subText:`Barcode ${code} isn't in the database. Enter macros from the label.`});
+      openFoodSheet({name:'', meal:pendingMeal||undefined, subText:`Barcode ${code} isn't in the database. Enter macros from the label.`});
       return;
     }
     const f=parseOFF(data.product);
     closeSheets();
-    openFoodSheet({...f, subText:'From Open Food Facts — double-check against the label.'});
+    openFoodSheet({...f, meal:pendingMeal||undefined, subText:'From Open Food Facts — double-check against the label.'});
   }catch{
     closeSheets();
-    openFoodSheet({name:'', subText:'Lookup failed (offline?). Enter the macros manually.'});
+    openFoodSheet({name:'', meal:pendingMeal||undefined, subText:'Lookup failed (offline?). Enter the macros manually.'});
   }
 }
 
@@ -850,51 +1083,112 @@ let searchMeal=null, offTimer=null, offAbort=null;
 
 function openSearch(meal){
   searchMeal = meal || null;
-  $('searchInput').value=''; renderResults([],[],'');
+  $('searchInput').value='';
+  renderResults(null, undefined, '');
   openSheet('searchSheet');
   setTimeout(()=>$('searchInput').focus(), 250);
 }
-$('btnSearch').onclick=()=>openSearch(null);
+$('btnSearch').onclick=()=>{ pendingMeal=null; pickingForRecipe=false; openSearch(null); };
 $('btnManualEntry').onclick=()=>{
   const q=$('searchInput').value.trim();
   closeSheets();
   openFoodSheet({name:q, meal:searchMeal||undefined});
 };
 
-$('searchInput').addEventListener('input', ()=>{
+function doSearch(){
   const q=$('searchInput').value.trim();
   const local = localMatches(q);
-  renderResults(local, null, q);           // instant local
+  renderResults(local, q.length>=3 ? null : undefined, q);   // instant local; null = OFF search pending
   if(offTimer) clearTimeout(offTimer);
   if(offAbort) offAbort.abort();
   if(q.length>=3){
     offTimer=setTimeout(()=>fetchOFF(q, local), 450);
   }
-});
+}
+$('searchInput').addEventListener('input', doSearch);
 
+/* Token search: every word in the query is matched independently, in any order.
+   "turkey breakfast sandwich" matches "Turkey Sausage Breakfast Sandwich". */
+function tokensOf(q){ return q.toLowerCase().split(/[^a-z0-9%']+/).filter(t=>t.length>=2); }
+/* forgiving match: try the token, then without a trailing letter (eggs→egg,
+   strawberry→strawberr…ies), then without a trailing "es" (tomatoes→tomato) */
+function tokenHit(n, t){
+  let i=n.indexOf(t); if(i>=0) return i;
+  if(t.length>3){ i=n.indexOf(t.slice(0,-1)); if(i>=0) return i; }
+  if(t.length>4 && t.endsWith('es')){ i=n.indexOf(t.slice(0,-2)); if(i>=0) return i; }
+  return -1;
+}
+function scoreText(text, tokens){
+  const n=text.toLowerCase(); let hits=0, pos=1e9;
+  for(const t of tokens){ const i=tokenHit(n,t); if(i>=0){ hits++; if(i<pos) pos=i; } }
+  return {hits, pos};
+}
 function localMatches(q){
-  if(!q) return [];
-  const s=q.toLowerCase();
-  return FOODS.filter(f=>f.n.toLowerCase().includes(s)).slice(0,8);
+  const tk=tokensOf(q);
+  if(!tk.length) return {common:[], chain:[], lib:[], recipes:[]};
+  const rank=(arr,textFn,cap)=>arr.map(x=>({x, s:scoreText(textFn(x), tk)}))
+    .filter(r=>r.s.hits>0)
+    .sort((a,b)=> b.s.hits-a.s.hits || a.s.pos-b.s.pos || textFn(a.x).length-textFn(b.x).length)
+    .slice(0,cap).map(r=>r.x);
+  return {
+    common: rank(FOODS, f=>f.n, 6),
+    chain:  rank(CHAIN, i=>i.b+' '+i.n+' '+(i.t||''), 6),
+    lib:    rank(getLib().items, x=>x.name, 5),
+    recipes:rank(getRecipes(), r=>r.name, 4),
+  };
 }
 
 async function fetchOFF(q, local){
   try{
     offAbort=new AbortController();
-    const url=`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=10&fields=code,product_name,brands,nutriments,serving_size,serving_quantity`;
+    const timer=setTimeout(()=>offAbort.abort(), 9000);   // OFF can be slow — wait up to 9s
+    const url=`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=15&fields=code,product_name,brands,nutriments,serving_size,serving_quantity`;
     const res=await fetch(url,{signal:offAbort.signal});
+    clearTimeout(timer);
     const data=await res.json();
-    const prods=(data.products||[]).filter(p=>p.product_name && p.nutriments && (p.nutriments['energy-kcal_100g']!=null || p.nutriments['energy_100g']!=null));
+    let prods=(data.products||[]).filter(p=>p.product_name && p.nutriments && (p.nutriments['energy-kcal_100g']!=null || p.nutriments['energy_100g']!=null));
+    // re-rank by keyword relevance — OFF's own ordering is weak
+    const tk=tokensOf(q);
+    prods=prods.map(p=>({p, s:scoreText((p.product_name||'')+' '+(p.brands||''), tk)}))
+      .sort((a,b)=> b.s.hits-a.s.hits || a.s.pos-b.s.pos).map(r=>r.p);
     if($('searchInput').value.trim()===q) renderResults(local, prods, q);
-  }catch{ /* aborted or offline — local results remain */ }
+  }catch{
+    // timed out or offline (a retype aborts too, but then the query no longer matches)
+    if($('searchInput').value.trim()===q) renderResults(local, 'error', q);
+  }
 }
 
 function renderResults(local, off, q){
   const box=$('searchResults'); box.innerHTML='';
-  if(!q){ box.innerHTML='<div class="rmsg">Type to search.</div>'; return; }
-  if(local.length){
+
+  /* ---- empty query: favorites, recents, recipes ---- */
+  if(!q){
+    const items=getLib().items;
+    const favs=items.filter(x=>x.fav).sort((a,b)=>(b.lastUsed||0)-(a.lastUsed||0)).slice(0,8);
+    const rec =items.filter(x=>!x.fav).sort((a,b)=>(b.lastUsed||0)-(a.lastUsed||0)).slice(0,8);
+    if(favs.length){ box.insertAdjacentHTML('beforeend','<div class="rhead">★ Favorites</div>'); favs.forEach(it=>box.appendChild(libRow(it))); }
+    if(rec.length){ box.insertAdjacentHTML('beforeend','<div class="rhead">Recent</div>'); rec.forEach(it=>box.appendChild(libRow(it))); }
+    if(!pickingForRecipe){
+      const rcs=getRecipes();
+      if(rcs.length){ box.insertAdjacentHTML('beforeend','<div class="rhead">Recipes</div>'); rcs.forEach(r=>box.appendChild(recipeRow(r))); }
+      box.appendChild(createRecipeRow());
+    }
+    if(!favs.length && !rec.length) box.insertAdjacentHTML('beforeend','<div class="rmsg">Foods you log will appear here for quick reuse.<br>Type to search.</div>');
+    return;
+  }
+
+  /* ---- typed query ---- */
+  if(local.lib && local.lib.length){
+    box.insertAdjacentHTML('beforeend','<div class="rhead">My foods & recents</div>');
+    local.lib.forEach(it=>box.appendChild(libRow(it)));
+  }
+  if(!pickingForRecipe && local.recipes && local.recipes.length){
+    box.insertAdjacentHTML('beforeend','<div class="rhead">Recipes</div>');
+    local.recipes.forEach(r=>box.appendChild(recipeRow(r)));
+  }
+  if(local.common.length){
     box.insertAdjacentHTML('beforeend','<div class="rhead">Common foods</div>');
-    local.forEach(f=>{
+    local.common.forEach(f=>{
       const row=document.createElement('div'); row.className='rrow';
       row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(f.n)}</div>
         <div class="rsub">1 ${escapeHtml(f.u)} · ${round(f.k*f.g/100)} kcal</div></div>
@@ -903,9 +1197,26 @@ function renderResults(local, off, q){
       box.appendChild(row);
     });
   }
+  if(local.chain.length){
+    box.insertAdjacentHTML('beforeend','<div class="rhead">Restaurant & chain (approx.)</div>');
+    local.chain.forEach(i=>{
+      const row=document.createElement('div'); row.className='rrow';
+      row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(i.n)}</div>
+        <div class="rsub">${escapeHtml(i.b)} · P ${i.p} · C ${i.c} · F ${i.f}</div></div>
+        <div class="rk num">${round(i.k)} kcal</div>`;
+      row.onclick=()=>pickChain(i);
+      box.appendChild(row);
+    });
+  }
   if(off===null){
     box.insertAdjacentHTML('beforeend','<div class="rmsg">Searching branded foods…</div>');
-  }else if(off && off.length){
+  }else if(off==='error'){
+    const btn=document.createElement('button');
+    btn.className='btn-ghost'; btn.style.marginTop='6px';
+    btn.textContent='Branded search didn\u2019t respond — tap to retry';
+    btn.onclick=()=>{ renderResults(local, null, q); fetchOFF(q, local); };
+    box.appendChild(btn);
+  }else if(Array.isArray(off) && off.length){
     box.insertAdjacentHTML('beforeend','<div class="rhead">Branded — Open Food Facts</div>');
     off.forEach(p=>{
       const parsed=parseOFF(p);
@@ -917,9 +1228,21 @@ function renderResults(local, off, q){
       row.onclick=()=>{ closeSheets(); openFoodSheet({...parsed, meal:searchMeal||undefined, subText:'From Open Food Facts — double-check against the label.'}); };
       box.appendChild(row);
     });
-  }else if(off && !off.length && !local.length){
-    box.insertAdjacentHTML('beforeend','<div class="rmsg">No matches — try another spelling or enter it manually.</div>');
+  }else{
+    const anyLocal = local.common.length || local.chain.length || (local.lib&&local.lib.length) || (local.recipes&&local.recipes.length);
+    if(Array.isArray(off) && !off.length && !anyLocal){
+      box.insertAdjacentHTML('beforeend','<div class="rmsg">No matches — try fewer words or enter it manually.</div>');
+    }else if(off===undefined && !anyLocal){
+      box.insertAdjacentHTML('beforeend','<div class="rmsg">Keep typing (3+ letters searches branded foods too).</div>');
+    }
   }
+}
+
+function pickChain(i){
+  const serv={base:{kcal:i.k, p:i.p, c:i.c, f:i.f}, label:'', grams:null};
+  closeSheets();
+  openFoodSheet({name:i.n+' ('+i.b+')', per100:null, serv, meal:searchMeal||undefined,
+    subText:'Typical published value — recipes change, so tweak the numbers if your item differs.'});
 }
 
 function pickLocal(f){
@@ -996,6 +1319,7 @@ $('sgUse').onclick=()=>{
 
 /* backup */
 $('btnExport').onclick=()=>{
+  localStorage.setItem('tally.lastExport', Date.now()+'');
   const dump={};
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i);
@@ -1021,8 +1345,338 @@ $('importFile').onchange=(e)=>{
   r.readAsText(file);
 };
 
+/* ============================================================
+   FOOD LIBRARY — recents, favorites, my foods (tally.lib)
+   Every logged food is saved as a reusable template.
+   ============================================================ */
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+function getLib(){ try{ const l=JSON.parse(localStorage.getItem('tally.lib')||'{"items":[]}'); return l.items? l : {items:[]}; }catch{ return {items:[]}; } }
+function saveLib(l){ localStorage.setItem('tally.lib', JSON.stringify(l)); }
+
+function upsertLibrary(entry){
+  if(!entry.name) return;
+  const lib=getLib();
+  const key=entry.name.trim().toLowerCase();
+  let it=lib.items.find(x=>x.name.trim().toLowerCase()===key);
+  if(!it){ it={id:uid(), name:entry.name, fav:false, count:0}; lib.items.push(it); }
+  it.mode=entry.mode; it.qty=entry.qty; it.unitName=entry.unitName;
+  it.base=entry.base; it.src=entry.src||null;
+  it.kcal=entry.kcal; it.p=entry.p; it.c=entry.c; it.f=entry.f;
+  it.portion=entry.portion||'';
+  it.lastUsed=Date.now(); it.count=(it.count||0)+1;
+  const favs=lib.items.filter(x=>x.fav);
+  const rest=lib.items.filter(x=>!x.fav).sort((a,b)=>(b.lastUsed||0)-(a.lastUsed||0)).slice(0,150);
+  lib.items=[...favs,...rest];
+  saveLib(lib);
+}
+
+/* one-time: seed the library from everything already logged, so
+   recents are useful immediately after this update */
+function seedLibrary(){
+  if(localStorage.getItem('tally.libseeded')) return;
+  try{
+    const lib=getLib();
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(!k || !k.startsWith('tally.log.')) continue;
+      const date=k.slice(10);
+      const ts=new Date(date+'T12:00:00').getTime()||Date.now();
+      getLog(date).forEach(e=>{
+        if(!e.name) return;
+        const key=e.name.trim().toLowerCase();
+        let it=lib.items.find(x=>x.name.trim().toLowerCase()===key);
+        if(!it){ it={id:uid(), name:e.name, fav:false, count:0, lastUsed:0}; lib.items.push(it); }
+        if(ts>=(it.lastUsed||0)){
+          it.mode=e.mode||'custom'; it.qty=(+e.qty>0)?+e.qty:1; it.unitName=e.unitName||'serving';
+          it.base=e.base||{kcal:+e.kcal||0,p:+e.p||0,c:+e.c||0,f:+e.f||0};
+          it.src=e.src||null; it.kcal=+e.kcal||0; it.p=+e.p||0; it.c=+e.c||0; it.f=+e.f||0;
+          it.portion=e.portion||''; it.lastUsed=ts;
+        }
+        it.count=(it.count||0)+1;
+      });
+    }
+    saveLib(lib);
+  }catch{}
+  localStorage.setItem('tally.libseeded','1');
+}
+
+function pickLib(it){
+  closeSheets();
+  openFoodSheet({
+    name:it.name,
+    per100: it.src? it.src.per100 : null,
+    serv:   it.src? it.src.serv  : null,
+    unitName: it.unitName, existing: it,
+    meal: searchMeal||undefined,
+  });
+}
+
+function libRow(it){
+  const row=document.createElement('div'); row.className='rrow';
+  row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(it.name)}</div>
+    <div class="rsub">${it.portion? escapeHtml(it.portion)+' · ':''}${round(it.kcal)} kcal</div></div>
+    <button class="star ${it.fav?'on':''}" aria-label="Favorite">${it.fav?'★':'☆'}</button>`;
+  row.onclick=()=>pickLib(it);
+  row.querySelector('.star').onclick=(ev)=>{
+    ev.stopPropagation();
+    const lib=getLib(); const t=lib.items.find(x=>x.id===it.id);
+    if(t){ t.fav=!t.fav; saveLib(lib); }
+    doSearch();
+  };
+  return row;
+}
+
+/* ============================================================
+   RECIPES — saved multi-ingredient meals (tally.recipes)
+   ============================================================ */
+function getRecipes(){ try{ return JSON.parse(localStorage.getItem('tally.recipes')||'[]'); }catch{ return []; } }
+function saveRecipes(r){ localStorage.setItem('tally.recipes', JSON.stringify(r)); }
+let recipeDraft=null, pickingForRecipe=false;
+
+function recipeTotals(r){
+  return r.items.reduce((a,i)=>({kcal:a.kcal+(+i.kcal||0), p:a.p+(+i.p||0), c:a.c+(+i.c||0), f:a.f+(+i.f||0)}), {kcal:0,p:0,c:0,f:0});
+}
+
+function recipeRow(r){
+  const t=recipeTotals(r), mk=Math.max(1,+r.makes||1);
+  const row=document.createElement('div'); row.className='rrow';
+  row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(r.name)}</div>
+    <div class="rsub">${mk} serving${mk===1?'':'s'} · ${round(t.kcal/mk)} kcal/serving</div></div>
+    <button class="rbtn" aria-label="Edit recipe">✎</button>`;
+  row.onclick=()=>pickRecipe(r);
+  row.querySelector('.rbtn').onclick=(ev)=>{ ev.stopPropagation(); openRecipeEditor(r); };
+  return row;
+}
+function createRecipeRow(){
+  const row=document.createElement('div'); row.className='rrow';
+  row.innerHTML=`<div class="rn"><div class="rname">＋ Create a recipe</div>
+    <div class="rsub">Combine foods into one loggable item</div></div>`;
+  row.onclick=()=>openRecipeEditor(null);
+  return row;
+}
+
+function pickRecipe(r){
+  const t=recipeTotals(r), mk=Math.max(1,+r.makes||1);
+  closeSheets();
+  openFoodSheet({
+    name:r.name,
+    serv:{base:scale(t,1/mk), label:'', grams:null},
+    meal: searchMeal||undefined,
+    subText:'1 serving = 1/'+mk+' of this recipe.',
+  });
+}
+
+function openRecipeEditor(rec){
+  if(rec){ recipeDraft=JSON.parse(JSON.stringify(rec)); }
+  else if(!(recipeDraft && !recipeDraft.savedAt && (recipeDraft.name || recipeDraft.items.length))){
+    recipeDraft={id:null, name:'', makes:1, items:[]};
+  }
+  $('rcTitle').textContent = recipeDraft.id? 'Edit recipe' : 'New recipe';
+  $('rcName').value=recipeDraft.name;
+  $('rcMakes').value=recipeDraft.makes;
+  renderRecipeItems();
+  $('rcDelete').style.display = recipeDraft.id? 'block' : 'none';
+  closeSheets(); openSheet('recipeSheet');
+}
+function renderRecipeItems(){
+  const list=$('rcItems'); list.innerHTML='';
+  if(!recipeDraft.items.length) list.innerHTML='<div class="rmsg">No ingredients yet.</div>';
+  recipeDraft.items.forEach((it,idx)=>{
+    const el=document.createElement('div'); el.className='rcitem';
+    el.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(it.name)}</div>
+      <div class="rsub">${round(it.kcal)} kcal · P ${round1(it.p)} · C ${round1(it.c)} · F ${round1(it.f)}</div></div>
+      <button class="del" aria-label="Remove">✕</button>`;
+    el.querySelector('.del').onclick=()=>{ recipeDraft.items.splice(idx,1); renderRecipeItems(); };
+    list.appendChild(el);
+  });
+  updateRecipeTotals();
+}
+function updateRecipeTotals(){
+  const t=recipeTotals(recipeDraft), mk=Math.max(1,+$('rcMakes').value||1);
+  $('rcTotals').innerHTML = recipeDraft.items.length
+    ? `Total <b>${round(t.kcal)} kcal</b> · P ${round1(t.p)} · C ${round1(t.c)} · F ${round1(t.f)} — per serving <b>${round(t.kcal/mk)} kcal</b>`
+    : '';
+}
+$('rcName').addEventListener('input', ()=>{ recipeDraft.name=$('rcName').value; });
+$('rcMakes').addEventListener('input', ()=>{ recipeDraft.makes=Math.max(1,+$('rcMakes').value||1); updateRecipeTotals(); });
+$('rcAdd').onclick=()=>{
+  recipeDraft.name=$('rcName').value;
+  pickingForRecipe=true;
+  closeSheets(); openSearch(null);
+};
+$('rcSave').onclick=()=>{
+  recipeDraft.name=($('rcName').value||'').trim();
+  recipeDraft.makes=Math.max(1,+$('rcMakes').value||1);
+  if(!recipeDraft.name){ $('rcName').focus(); return; }
+  if(!recipeDraft.items.length){ return; }
+  const rcs=getRecipes();
+  if(recipeDraft.id){
+    const i=rcs.findIndex(r=>r.id===recipeDraft.id);
+    if(i>=0) rcs[i]={id:recipeDraft.id,name:recipeDraft.name,makes:recipeDraft.makes,items:recipeDraft.items};
+  }else{
+    rcs.push({id:uid(), name:recipeDraft.name, makes:recipeDraft.makes, items:recipeDraft.items});
+  }
+  saveRecipes(rcs);
+  recipeDraft.savedAt=Date.now();
+  closeSheets();
+  openSearch(searchMeal);
+};
+$('rcDelete').onclick=()=>{
+  if(!recipeDraft.id) return;
+  if(!confirm('Delete this recipe?')) return;
+  saveRecipes(getRecipes().filter(r=>r.id!==recipeDraft.id));
+  recipeDraft={id:null,name:'',makes:1,items:[],savedAt:Date.now()};
+  closeSheets(); openSearch(searchMeal);
+};
+
+/* ============================================================
+   TRENDS — weight log + weekly intake (tally.weight)
+   ============================================================ */
+function getWeights(){
+  try{ const w=JSON.parse(localStorage.getItem('tally.weight')||'null'); if(w && w.log) return w; }catch{}
+  return {unit:(getProfile().units==='metric'?'kg':'lb'), log:{}};
+}
+function saveWeights(w){ localStorage.setItem('tally.weight', JSON.stringify(w)); }
+
+function lastNDates(n, endDate){
+  const out=[]; const d=new Date(endDate);
+  for(let i=n-1;i>=0;i--){ const x=new Date(d); x.setDate(x.getDate()-i); out.push(clampDate(x)); }
+  return out;
+}
+function daySum(ds){
+  const es=getLog(ds); if(!es.length) return null;
+  return es.reduce((a,e)=>({kcal:a.kcal+(+e.kcal||0), p:a.p+(+e.p||0)}), {kcal:0,p:0});
+}
+
+function weightSeries(days){
+  const w=getWeights();
+  const dates=lastNDates(days, new Date());
+  const pts=[];
+  dates.forEach((ds,i)=>{ const v=w.log[ds]; if(v!=null && +v>0) pts.push({i, ds, v:+v}); });
+  const trend=pts.map(p=>{
+    const from=new Date(p.ds); from.setDate(from.getDate()-6);
+    const fs=clampDate(from);
+    const win=pts.filter(q=>q.ds>=fs && q.ds<=p.ds);
+    return {i:p.i, v: win.reduce((a,q)=>a+q.v,0)/win.length};
+  });
+  let rate=null;
+  if(trend.length>=2){
+    const span=pts[pts.length-1].i - pts[0].i;
+    if(span>=7) rate=(trend[trend.length-1].v - trend[0].v)/span*7;
+  }
+  return {pts, trend, rate, unit:w.unit, days};
+}
+
+function buildWeightSVG(s){
+  if(!s.pts.length) return '<div class="rmsg">Log a weight to start the chart.</div>';
+  const W=320,H=120,P=10;
+  const vs=s.pts.map(p=>p.v);
+  let lo=Math.min(...vs), hi=Math.max(...vs);
+  if(hi-lo<1){ hi+=0.5; lo-=0.5; }
+  const X=i=>P+(W-2*P)*(i/Math.max(1,s.days-1));
+  const Y=v=>H-P-(H-2*P)*((v-lo)/(hi-lo));
+  const dots=s.pts.map(p=>`<circle cx="${X(p.i).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="3" fill="#8F7BFF"/>`).join('');
+  const line=s.trend.length>1
+    ? `<polyline fill="none" stroke="#F3F4F6" stroke-width="2" stroke-linejoin="round" points="${s.trend.map(t=>X(t.i).toFixed(1)+','+Y(t.v).toFixed(1)).join(' ')}"/>` : '';
+  return `<svg viewBox="0 0 ${W} ${H}">
+    <text x="${P}" y="12" fill="#9CA3AF" font-size="9">${hi.toFixed(1)}</text>
+    <text x="${P}" y="${H-2}" fill="#9CA3AF" font-size="9">${lo.toFixed(1)}</text>
+    ${line}${dots}</svg>`;
+}
+
+function buildKcalSVG(){
+  const t=getTargets();
+  const dates=lastNDates(14, new Date());
+  const sums=dates.map(daySum);
+  const W=320,H=120,P=10, slot=(W-2*P)/14, bw=slot-3;
+  const maxV=Math.max(t.kcal*1.15, ...sums.filter(Boolean).map(s=>s.kcal), 1);
+  const Y=v=>H-P-(H-2*P)*(v/maxV);
+  let bars='';
+  sums.forEach((s,i)=>{
+    const x=P+i*slot;
+    if(s){
+      const over=s.kcal>t.kcal;
+      bars+=`<rect x="${x.toFixed(1)}" y="${Y(s.kcal).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2,(H-P-Y(s.kcal))).toFixed(1)}" rx="2" fill="${over?'#FF6B6B':'#22C79A'}"/>`;
+    }else{
+      bars+=`<rect x="${x.toFixed(1)}" y="${H-P-3}" width="${bw.toFixed(1)}" height="3" rx="1.5" fill="#272B33"/>`;
+    }
+  });
+  const ty=Y(t.kcal).toFixed(1);
+  return `<svg viewBox="0 0 ${W} ${H}">${bars}
+    <line x1="${P}" x2="${W-P}" y1="${ty}" y2="${ty}" stroke="#8F7BFF" stroke-width="1.5" stroke-dasharray="4 4"/></svg>`;
+}
+
+function intakeStats(){
+  const avg=a=>a.length? {kcal:a.reduce((x,s)=>x+s.kcal,0)/a.length, p:a.reduce((x,s)=>x+s.p,0)/a.length, n:a.length} : null;
+  const last7=lastNDates(7,new Date()).map(daySum).filter(Boolean);
+  const prevEnd=new Date(); prevEnd.setDate(prevEnd.getDate()-7);
+  const prev7=lastNDates(7,prevEnd).map(daySum).filter(Boolean);
+  return {cur:avg(last7), prev:avg(prev7)};
+}
+
+function renderTrends(){
+  const w=getWeights();
+  $('wUnitSeg').querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.u===w.unit));
+  const latestKey=Object.keys(w.log).sort().pop();
+  $('wIn').value = w.log[TODAY]!=null ? w.log[TODAY] : (latestKey? w.log[latestKey] : '');
+
+  const s=weightSeries(30);
+  $('wChart').innerHTML=buildWeightSVG(s);
+  let ws='';
+  if(s.pts.length){
+    const latest=s.pts[s.pts.length-1].v, tr=s.trend[s.trend.length-1].v;
+    ws=`Latest <b>${latest.toFixed(1)} ${w.unit}</b> · 7-day trend <b>${tr.toFixed(1)}</b>`;
+    ws += (s.rate!=null)
+      ? ` · <b>${(s.rate>0?'+':'')+s.rate.toFixed(1)} ${w.unit}/wk</b>`
+      : ' · log a week of weights to see your rate';
+  }else ws='Weigh in most mornings and the trend line will smooth out the daily noise.';
+  $('wStats').innerHTML=ws;
+
+  $('kChart').innerHTML=buildKcalSVG();
+  const st=intakeStats(), t=getTargets();
+  let ks='';
+  if(st.cur){
+    ks=`7-day avg <b>${round(st.cur.kcal)} kcal</b> · <b>${round(st.cur.p)}g</b> protein (${st.cur.n} day${st.cur.n===1?'':'s'} logged · target ${round(t.kcal)} / ${round(t.p)}g)`;
+    if(st.prev){ const d=st.cur.kcal-st.prev.kcal; ks+=`<br>vs prior week: <b>${(d>0?'+':'')+round(d)} kcal/day</b>`; }
+  }else ks='No logged days in the last week yet.';
+  $('kStats').innerHTML=ks;
+}
+
+$('btnTrends').onclick=()=>{ closeSheets(); renderTrends(); openSheet('trendSheet'); };
+$('wSave').onclick=()=>{
+  const v=+$('wIn').value;
+  if(!(v>0)) return;
+  const w=getWeights(); w.log[TODAY]=round1(v); saveWeights(w); renderTrends();
+};
+$('wUnitSeg').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+  const w=getWeights(); if(w.unit===b.dataset.u) return;
+  const f=b.dataset.u==='kg' ? 1/2.20462 : 2.20462;
+  Object.keys(w.log).forEach(k=>w.log[k]=round1(w.log[k]*f));
+  w.unit=b.dataset.u; saveWeights(w); renderTrends();
+});
+
+/* ============================================================
+   BACKUP NUDGE
+   ============================================================ */
+function maybeNudge(){
+  try{
+    let hasData=false;
+    for(let i=0;i<localStorage.length;i++){ if((localStorage.key(i)||'').startsWith('tally.log.')){ hasData=true; break; } }
+    if(!hasData) return;
+    const DAY=86400000;
+    const last=+localStorage.getItem('tally.lastExport')||0;
+    const snooze=+localStorage.getItem('tally.nudgeSnooze')||0;
+    if(Date.now()-last>14*DAY && Date.now()-snooze>7*DAY) $('nudge').style.display='block';
+  }catch{}
+}
+$('nudgeGo').onclick=()=>{ $('nudge').style.display='none'; $('btnExport').click(); };
+$('nudgeLater').onclick=()=>{ localStorage.setItem('tally.nudgeSnooze', Date.now()+''); $('nudge').style.display='none'; };
+
 /* ---------- init ---------- */
+if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(()=>{}); }
+seedLibrary();
 renderDay();
+maybeNudge();
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }
