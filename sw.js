@@ -1,6 +1,6 @@
-/* Tally service worker — app-shell cache.
-   Bump CACHE version when you change files so users get the update. */
-const CACHE = 'tally-v1';
+/* Macros service worker — app-shell cache.
+   Bump CACHE version whenever files change so users get the update. */
+const CACHE = 'macros-v2';
 const SHELL = [
   './',
   './index.html',
