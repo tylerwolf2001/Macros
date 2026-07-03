@@ -1210,9 +1210,11 @@ function renderResults(local, off, q){
     box.insertAdjacentHTML('beforeend','<div class="rhead">Common foods</div>');
     local.common.forEach(f=>{
       const row=document.createElement('div'); row.className='rrow';
+      const s=f.g/100;
+      const uLabel=/^\d/.test(f.u)? f.u : '1 '+f.u;
       row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(f.n)}</div>
-        <div class="rsub">1 ${escapeHtml(f.u)} (${f.g}g)</div></div>
-        <div class="rk num">${round(f.k*f.g/100)}<small>kcal/serving</small></div>`;
+        <div class="rsub">${escapeHtml(uLabel)} · P ${round1(f.p*s)} · C ${round1(f.c*s)} · F ${round1(f.f*s)}</div></div>
+        <div class="rk num">${round(f.k*s)} kcal</div>`;
       row.onclick=()=>pickLocal(f);
       box.appendChild(row);
     });
@@ -1223,7 +1225,7 @@ function renderResults(local, off, q){
       const row=document.createElement('div'); row.className='rrow';
       row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(i.n)}</div>
         <div class="rsub">${escapeHtml(i.b)} · P ${i.p} · C ${i.c} · F ${i.f}</div></div>
-        <div class="rk num">${round(i.k)}<small>kcal/item</small></div>`;
+        <div class="rk num">${round(i.k)} kcal</div>`;
       row.onclick=()=>pickChain(i);
       box.appendChild(row);
     });
@@ -1241,18 +1243,18 @@ function renderResults(local, off, q){
     off.forEach(p=>{
       const parsed=parseOFF(p);
       const row=document.createElement('div'); row.className='rrow';
-      let rk;
+      let kcalV=null, m=null, basis='';
       if(parsed.serv && parsed.serv.base && parsed.serv.base.kcal!=null){
-        rk=`${round(parsed.serv.base.kcal)}<small>kcal/serving</small>`;
+        m=parsed.serv.base; kcalV=m.kcal;
+        basis = parsed.serv.grams ? round1(parsed.serv.grams)+'g serving' : 'per serving';
       }else if(parsed.per100){
-        rk=`${round(parsed.per100.kcal)}<small>kcal/100g</small>`;
-      }else{
-        rk='—<small>kcal</small>';
+        m=parsed.per100; kcalV=m.kcal; basis='per 100g';
       }
-      const servNote = parsed.serv && parsed.serv.grams ? ' · '+round1(parsed.serv.grams)+'g serving' : '';
+      const parts=[(p.brands||'').split(',')[0].trim(), basis,
+        m? `P ${round1(m.p||0)} · C ${round1(m.c||0)} · F ${round1(m.f||0)}` : ''].filter(Boolean);
       row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(p.product_name)}</div>
-        <div class="rsub">${escapeHtml((p.brands||'').split(',')[0])}${servNote}</div></div>
-        <div class="rk num">${rk}</div>`;
+        <div class="rsub">${escapeHtml(parts.join(' · '))}</div></div>
+        <div class="rk num">${kcalV!=null? round(kcalV):'—'} kcal</div>`;
       row.onclick=()=>{ closeSheets(); openFoodSheet({...parsed, meal:searchMeal||undefined, subText:'From Open Food Facts — double-check against the label.'}); };
       box.appendChild(row);
     });
@@ -1441,9 +1443,10 @@ function pickLib(it){
 
 function libRow(it){
   const row=document.createElement('div'); row.className='rrow';
+  const parts=[it.portion||'', `P ${round1(it.p)} · C ${round1(it.c)} · F ${round1(it.f)}`].filter(Boolean);
   row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(it.name)}</div>
-    <div class="rsub">${it.portion? escapeHtml(it.portion) : 'saved food'}</div></div>
-    <div class="rk num">${round(it.kcal)}<small>kcal</small></div>
+    <div class="rsub">${escapeHtml(parts.join(' · '))}</div></div>
+    <div class="rk num">${round(it.kcal)} kcal</div>
     <button class="star ${it.fav?'on':''}" aria-label="Favorite">${it.fav?'★':'☆'}</button>`;
   row.onclick=()=>pickLib(it);
   row.querySelector('.star').onclick=(ev)=>{
@@ -1470,8 +1473,8 @@ function recipeRow(r){
   const t=recipeTotals(r), mk=Math.max(1,+r.makes||1);
   const row=document.createElement('div'); row.className='rrow';
   row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(r.name)}</div>
-    <div class="rsub">recipe · ${mk} serving${mk===1?'':'s'}</div></div>
-    <div class="rk num">${round(t.kcal/mk)}<small>kcal/serving</small></div>
+    <div class="rsub">recipe · ${mk} serving${mk===1?'':'s'} · P ${round1(t.p/mk)} · C ${round1(t.c/mk)} · F ${round1(t.f/mk)}</div></div>
+    <div class="rk num">${round(t.kcal/mk)} kcal</div>
     <button class="rbtn" aria-label="Edit recipe">✎</button>`;
   row.onclick=()=>pickRecipe(r);
   row.querySelector('.rbtn').onclick=(ev)=>{ ev.stopPropagation(); openRecipeEditor(r); };
