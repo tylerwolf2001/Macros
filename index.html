@@ -51,7 +51,7 @@
 
   /* ---------- header / date nav ---------- */
   header{
-    padding:calc(14px + env(safe-area-inset-top)) 18px 10px;
+    padding:calc(14px + env(safe-area-inset-top, 24px)) 18px 10px;
     max-width:480px;margin:0 auto;
     display:flex;align-items:center;justify-content:space-between;
   }
@@ -189,7 +189,8 @@
   .rrow .rn{flex:1;min-width:0}
   .rrow .rname{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rrow .rsub{font-size:12px;color:var(--ink-soft);margin-top:2px}
-  .rrow .rk{font-family:'Space Grotesk';font-size:13.5px;color:var(--ink-soft);white-space:nowrap}
+  .rrow .rk{font-family:'Space Grotesk';font-size:15px;font-weight:600;color:var(--ink);white-space:nowrap;text-align:right}
+  .rrow .rk small{display:block;font-family:'Inter';font-weight:500;font-size:9.5px;color:var(--ink-soft);letter-spacing:.02em}
   .rmsg{color:var(--ink-soft);font-size:13px;text-align:center;padding:10px}
   .rrow .star,.rrow .rbtn{border:none;background:transparent;color:var(--ink-soft);font-size:17px;cursor:pointer;padding:4px 7px;flex:0 0 auto}
   .rrow .star.on{color:var(--fat)}
@@ -514,14 +515,27 @@
    ============================================================ */
 
 const $ = id => document.getElementById(id);
-const clampDate = d => d.toISOString().slice(0,10);
+/* local-time date key — toISOString() is UTC and files evening entries under tomorrow */
+const clampDate = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const round  = n => Math.round(Number(n)||0);
 const round1 = n => Math.round((Number(n)||0)*10)/10;
 const round5 = n => Math.round((Number(n)||0)/5)*5;
 
 const MEALS = [['breakfast','Breakfast'],['lunch','Lunch'],['dinner','Dinner']];
 let viewDate = new Date();
-const TODAY = clampDate(new Date());
+let TODAY = clampDate(new Date());
+
+/* if the app sits open across midnight (common for installed web apps),
+   roll "today" forward when it comes back into view */
+function refreshToday(){
+  const now = clampDate(new Date());
+  if(now !== TODAY){
+    const wasOnToday = clampDate(viewDate) === TODAY;
+    TODAY = now;
+    if(wasOnToday) viewDate = new Date();
+    renderDay();
+  }
+}
 
 /* ---------- built-in common foods (per 100 g; unit = common portion) ---------- */
 const FOODS=[
@@ -1079,7 +1093,7 @@ async function lookupBarcode(code){
 /* ============================================================
    FOOD SEARCH — local common foods + Open Food Facts by name
    ============================================================ */
-let searchMeal=null, offTimer=null, offAbort=null;
+let searchMeal=null, offTimer=null, offAbort=null, lastOFF={q:'', prods:null};
 
 function openSearch(meal){
   searchMeal = meal || null;
@@ -1098,6 +1112,10 @@ $('btnManualEntry').onclick=()=>{
 function doSearch(){
   const q=$('searchInput').value.trim();
   const local = localMatches(q);
+  if(q.length>=3 && lastOFF.q===q && lastOFF.prods){
+    renderResults(local, lastOFF.prods, q);   // reuse cached branded results (e.g. after a star toggle)
+    return;
+  }
   renderResults(local, q.length>=3 ? null : undefined, q);   // instant local; null = OFF search pending
   if(offTimer) clearTimeout(offTimer);
   if(offAbort) offAbort.abort();
@@ -1106,6 +1124,7 @@ function doSearch(){
   }
 }
 $('searchInput').addEventListener('input', doSearch);
+$('searchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') $('searchInput').blur(); });
 
 /* Token search: every word in the query is matched independently, in any order.
    "turkey breakfast sandwich" matches "Turkey Sausage Breakfast Sandwich". */
@@ -1151,6 +1170,7 @@ async function fetchOFF(q, local){
     const tk=tokensOf(q);
     prods=prods.map(p=>({p, s:scoreText((p.product_name||'')+' '+(p.brands||''), tk)}))
       .sort((a,b)=> b.s.hits-a.s.hits || a.s.pos-b.s.pos).map(r=>r.p);
+    lastOFF={q, prods};
     if($('searchInput').value.trim()===q) renderResults(local, prods, q);
   }catch{
     // timed out or offline (a retype aborts too, but then the query no longer matches)
@@ -1191,8 +1211,8 @@ function renderResults(local, off, q){
     local.common.forEach(f=>{
       const row=document.createElement('div'); row.className='rrow';
       row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(f.n)}</div>
-        <div class="rsub">1 ${escapeHtml(f.u)} · ${round(f.k*f.g/100)} kcal</div></div>
-        <div class="rk num">${f.k}/100g</div>`;
+        <div class="rsub">1 ${escapeHtml(f.u)} (${f.g}g)</div></div>
+        <div class="rk num">${round(f.k*f.g/100)}<small>kcal/serving</small></div>`;
       row.onclick=()=>pickLocal(f);
       box.appendChild(row);
     });
@@ -1203,7 +1223,7 @@ function renderResults(local, off, q){
       const row=document.createElement('div'); row.className='rrow';
       row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(i.n)}</div>
         <div class="rsub">${escapeHtml(i.b)} · P ${i.p} · C ${i.c} · F ${i.f}</div></div>
-        <div class="rk num">${round(i.k)} kcal</div>`;
+        <div class="rk num">${round(i.k)}<small>kcal/item</small></div>`;
       row.onclick=()=>pickChain(i);
       box.appendChild(row);
     });
@@ -1221,10 +1241,18 @@ function renderResults(local, off, q){
     off.forEach(p=>{
       const parsed=parseOFF(p);
       const row=document.createElement('div'); row.className='rrow';
-      const kc = parsed.per100? round(parsed.per100.kcal) : (parsed.serv? round(parsed.serv.base.kcal):'—');
+      let rk;
+      if(parsed.serv && parsed.serv.base && parsed.serv.base.kcal!=null){
+        rk=`${round(parsed.serv.base.kcal)}<small>kcal/serving</small>`;
+      }else if(parsed.per100){
+        rk=`${round(parsed.per100.kcal)}<small>kcal/100g</small>`;
+      }else{
+        rk='—<small>kcal</small>';
+      }
+      const servNote = parsed.serv && parsed.serv.grams ? ' · '+round1(parsed.serv.grams)+'g serving' : '';
       row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(p.product_name)}</div>
-        <div class="rsub">${escapeHtml((p.brands||'').split(',')[0])}</div></div>
-        <div class="rk num">${kc}${parsed.per100?'/100g':' kcal'}</div>`;
+        <div class="rsub">${escapeHtml((p.brands||'').split(',')[0])}${servNote}</div></div>
+        <div class="rk num">${rk}</div>`;
       row.onclick=()=>{ closeSheets(); openFoodSheet({...parsed, meal:searchMeal||undefined, subText:'From Open Food Facts — double-check against the label.'}); };
       box.appendChild(row);
     });
@@ -1414,7 +1442,8 @@ function pickLib(it){
 function libRow(it){
   const row=document.createElement('div'); row.className='rrow';
   row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(it.name)}</div>
-    <div class="rsub">${it.portion? escapeHtml(it.portion)+' · ':''}${round(it.kcal)} kcal</div></div>
+    <div class="rsub">${it.portion? escapeHtml(it.portion) : 'saved food'}</div></div>
+    <div class="rk num">${round(it.kcal)}<small>kcal</small></div>
     <button class="star ${it.fav?'on':''}" aria-label="Favorite">${it.fav?'★':'☆'}</button>`;
   row.onclick=()=>pickLib(it);
   row.querySelector('.star').onclick=(ev)=>{
@@ -1441,7 +1470,8 @@ function recipeRow(r){
   const t=recipeTotals(r), mk=Math.max(1,+r.makes||1);
   const row=document.createElement('div'); row.className='rrow';
   row.innerHTML=`<div class="rn"><div class="rname">${escapeHtml(r.name)}</div>
-    <div class="rsub">${mk} serving${mk===1?'':'s'} · ${round(t.kcal/mk)} kcal/serving</div></div>
+    <div class="rsub">recipe · ${mk} serving${mk===1?'':'s'}</div></div>
+    <div class="rk num">${round(t.kcal/mk)}<small>kcal/serving</small></div>
     <button class="rbtn" aria-label="Edit recipe">✎</button>`;
   row.onclick=()=>pickRecipe(r);
   row.querySelector('.rbtn').onclick=(ev)=>{ ev.stopPropagation(); openRecipeEditor(r); };
@@ -1554,7 +1584,7 @@ function weightSeries(days){
   const pts=[];
   dates.forEach((ds,i)=>{ const v=w.log[ds]; if(v!=null && +v>0) pts.push({i, ds, v:+v}); });
   const trend=pts.map(p=>{
-    const from=new Date(p.ds); from.setDate(from.getDate()-6);
+    const from=new Date(p.ds+'T12:00:00'); from.setDate(from.getDate()-6);
     const fs=clampDate(from);
     const win=pts.filter(q=>q.ds>=fs && q.ds<=p.ds);
     return {i:p.i, v: win.reduce((a,q)=>a+q.v,0)/win.length};
@@ -1677,6 +1707,9 @@ if(navigator.storage && navigator.storage.persist){ navigator.storage.persist().
 seedLibrary();
 renderDay();
 maybeNudge();
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) refreshToday(); });
+window.addEventListener('focus', refreshToday);
+document.querySelectorAll('input[type="number"]').forEach(i=>i.addEventListener('focus', ()=>setTimeout(()=>i.select(),0)));
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 }

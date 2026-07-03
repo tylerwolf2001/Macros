@@ -1,6 +1,6 @@
 /* Macros service worker — app-shell cache.
    Bump CACHE version whenever files change so users get the update. */
-const CACHE = 'macros-v5';
+const CACHE = 'macros-v6';
 const SHELL = [
   './',
   './index.html',
