@@ -812,20 +812,27 @@ document.querySelectorAll('.sheet-x').forEach(b=>b.onclick=closeSheets);
    keyboard height and cap its height to what's actually visible */
 const vv = window.visualViewport;
 function fitOpenSheets(){
-  const kb = vv ? Math.max(0, window.innerHeight - vv.height) : 0;
+  if(!vv) return;
+  /* iOS can "pan" the visual viewport (offsetTop) to chase the caret; anchor the
+     sheet to the *visual* viewport bottom, not the layout viewport bottom */
+  const kb  = Math.max(0, window.innerHeight - vv.height);
+  const gap = Math.max(0, window.innerHeight - (vv.offsetTop + vv.height));
+  const kbOpen = kb > 60;
   document.querySelectorAll('.sheet.show').forEach(s=>{
-    if(kb>0){
-      s.style.bottom = kb+'px';
-      s.style.maxHeight = Math.max(220, vv.height - 12)+'px';
+    if(kbOpen){
+      s.style.bottom = gap+'px';
+      s.style.maxHeight = Math.max(200, vv.height - 10)+'px';
     }else{
       s.style.bottom=''; s.style.maxHeight='';
     }
   });
 }
+const refitSheets=()=>{ fitOpenSheets(); requestAnimationFrame(fitOpenSheets); };
 if(vv){
-  vv.addEventListener('resize', fitOpenSheets);
-  vv.addEventListener('scroll', fitOpenSheets);
+  vv.addEventListener('resize', refitSheets);
+  vv.addEventListener('scroll', refitSheets);
 }
+window.addEventListener('resize', refitSheets);
 
 /* ---------- date nav ---------- */
 $('prevDay').onclick=()=>{ viewDate.setDate(viewDate.getDate()-1); renderDay(); };
@@ -1195,7 +1202,7 @@ function localMatches(q){
   };
 }
 
-async function fetchOFF(q, local){
+async function fetchOFF(q, local, attempt){
   try{
     offAbort=new AbortController();
     const timer=setTimeout(()=>offAbort.abort(), 9000);   // OFF can be slow — wait up to 9s
@@ -1208,11 +1215,16 @@ async function fetchOFF(q, local){
     const tk=tokensOf(q);
     prods=prods.map(p=>({p, s:scoreText((p.product_name||'')+' '+(p.brands||''), tk)}))
       .sort((a,b)=> b.s.hits-a.s.hits || a.s.pos-b.s.pos).map(r=>r.p);
-    lastOFF={q, prods};
+    if(prods.length) lastOFF={q, prods};   // never cache an empty/flaky response
     if($('searchInput').value.trim()===q) renderResults(local, prods, q);
   }catch{
-    // timed out or offline (a retype aborts too, but then the query no longer matches)
-    if($('searchInput').value.trim()===q) renderResults(local, 'error', q);
+    if($('searchInput').value.trim()!==q) return;   // superseded by newer typing
+    if(!attempt){
+      // OFF flakes on first hit fairly often — quietly try once more
+      setTimeout(()=>{ if($('searchInput').value.trim()===q) fetchOFF(q, local, 1); }, 700);
+      return;
+    }
+    renderResults(local, 'error', q);
   }
 }
 
@@ -1271,11 +1283,7 @@ function renderResults(local, off, q){
   if(off===null){
     box.insertAdjacentHTML('beforeend','<div class="rmsg">Searching branded foods…</div>');
   }else if(off==='error'){
-    const btn=document.createElement('button');
-    btn.className='btn-ghost'; btn.style.marginTop='6px';
-    btn.textContent='Branded search didn\u2019t respond — tap to retry';
-    btn.onclick=()=>{ renderResults(local, null, q); fetchOFF(q, local); };
-    box.appendChild(btn);
+    box.appendChild(offRetryBtn(local, q, 'Branded search didn\u2019t respond — tap to retry'));
   }else if(Array.isArray(off) && off.length){
     box.insertAdjacentHTML('beforeend','<div class="rhead">Branded — Open Food Facts</div>');
     off.forEach(p=>{
@@ -1296,14 +1304,27 @@ function renderResults(local, off, q){
       row.onclick=()=>{ closeSheets(); openFoodSheet({...parsed, meal:searchMeal||undefined, subText:'From Open Food Facts — double-check against the label.'}); };
       box.appendChild(row);
     });
-  }else{
+  }else if(Array.isArray(off) && !off.length){
     const anyLocal = local.common.length || local.chain.length || (local.lib&&local.lib.length) || (local.recipes&&local.recipes.length);
-    if(Array.isArray(off) && !off.length && !anyLocal){
-      box.insertAdjacentHTML('beforeend','<div class="rmsg">No matches — try fewer words or enter it manually.</div>');
-    }else if(off===undefined && !anyLocal){
-      box.insertAdjacentHTML('beforeend','<div class="rmsg">Keep typing (3+ letters searches branded foods too).</div>');
-    }
+    if(!anyLocal) box.insertAdjacentHTML('beforeend','<div class="rmsg">No matches — try fewer words or enter it manually.</div>');
+    box.appendChild(offRetryBtn(local, q, 'No branded matches — search again'));
+  }else if(off===undefined){
+    const anyLocal = local.common.length || local.chain.length || (local.lib&&local.lib.length) || (local.recipes&&local.recipes.length);
+    if(!anyLocal) box.insertAdjacentHTML('beforeend','<div class="rmsg">Keep typing (3+ letters searches branded foods too).</div>');
   }
+  fitOpenSheets();   // re-pin the sheet after content growth
+}
+
+function offRetryBtn(local, q, label){
+  const btn=document.createElement('button');
+  btn.className='btn-ghost'; btn.style.marginTop='6px';
+  btn.textContent=label;
+  btn.onclick=()=>{
+    lastOFF={q:'', prods:null};             // bust the cache so it truly re-searches
+    renderResults(local, null, q);
+    fetchOFF(q, local);
+  };
+  return btn;
 }
 
 function pickChain(i){
